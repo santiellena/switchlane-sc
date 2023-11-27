@@ -11,18 +11,35 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker
 using ECDSA for bytes32;
 
 contract Switchlane is OwnerIsCreator {
+    /**
+     *  STORAGE VARIABLES SECTION
+     */
+
     IRouterClient router;
     LinkTokenInterface linkToken;
+
+    /**
+     *  STATE VARIABLES SECTION
+     */
 
     mapping(uint64 => bool) public whiteListedChains;
     mapping(uint64 => mapping(address => bool)) whiteListedTokensOnChains;
     mapping(address => bool) whiteListedReceiveTokens;
 
-    error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees);
+    /**
+     *  ERRORS SECTION
+     */
+
+    error NotEnoughLinkBalance(uint256 currentBalance, uint256 calculatedFees);
     error NothingToWithdraw(address);
     error DestinationChainNotWhiteListed(uint64 destinationChainSelector);
     error TokenOnChainNotWhiteListed(uint64 destinationChainSelector, address token);
     error ReceiveTokenNotWhiteListed(address token);
+    error NotEnoughTokenBalance(address sender, address token, uint256 amount);
+
+    /**
+     *  EVENTS SECTION
+     */
 
     /**
      *
@@ -43,6 +60,10 @@ contract Switchlane is OwnerIsCreator {
         address feeToken,
         uint256 fees
     );
+
+    /**
+     *  MODIFIERS SECTION
+     */
 
     modifier onlyWhiteListedChain(uint64 _destinationChainSelector) {
         if (!whiteListedChains[_destinationChainSelector]) {
@@ -65,10 +86,23 @@ contract Switchlane is OwnerIsCreator {
         _;
     }
 
+    modifier hasEnoughBalance(address sender, address token, uint256 amount) {
+        if (IERC20(token).balanceOf(sender) < amount) {
+            revert NotEnoughTokenBalance(sender, token, amount);
+        }
+        _;
+    }
+
+    // CONSTRUCTOR
+
     constructor(address _router, address _linkToken) {
         router = IRouterClient(_router);
         linkToken = LinkTokenInterface(_linkToken);
     }
+
+    /**
+     *   INTERNAL FUNCTIONS SECTION
+     */
 
     /**
      *
@@ -77,8 +111,8 @@ contract Switchlane is OwnerIsCreator {
      * @param _token address of the token
      * @param _amount amount of token to be sended
      */
-    function trasnferTokens(uint64 _destinationChainSelector, address _receiver, address _token, uint256 _amount)
-        external
+    function _trasnferTokens(uint64 _destinationChainSelector, address _receiver, address _token, uint256 _amount)
+        internal
         onlyWhiteListedChain(_destinationChainSelector)
         onlyOwner
         returns (bytes32 messageId)
@@ -106,7 +140,7 @@ contract Switchlane is OwnerIsCreator {
         uint256 balanceOfContract = linkToken.balanceOf(address(this));
 
         if (fees > balanceOfContract) {
-            revert NotEnoughBalance(balanceOfContract, fees);
+            revert NotEnoughLinkBalance(balanceOfContract, fees);
         }
 
         linkToken.approve(address(router), fees);
@@ -120,6 +154,24 @@ contract Switchlane is OwnerIsCreator {
         );
     }
 
+    /**
+     *
+     * @param token address of the erc 20 token sent and used to pay fees
+     * @param amount amount of the erc 20 token sent and used to pay fees
+     */
+    function _receiveTokens(address token, uint256 amount)
+        internal
+        onlyWhiteListedReceiveTokens(token)
+        hasEnoughBalance(msg.sender, token, amount)
+    {
+        IERC20(token).approve(address(this), amount);
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+    }
+
+    /**
+     *  PUBLIC FUNCTIONS SECTION
+     */
+
     function withdrawToken(address _beneficiary, address _token) public onlyOwner {
         uint256 amount = IERC20(_token).balanceOf(address(this));
 
@@ -127,6 +179,12 @@ contract Switchlane is OwnerIsCreator {
 
         IERC20(_token).transfer(_beneficiary, amount);
     }
+
+    /**
+     *  EXTERNAL FUNCTIONS SECTION
+     */
+
+    function switchlane() external {}
 
     /**
      *
@@ -174,5 +232,17 @@ contract Switchlane is OwnerIsCreator {
      */
     function denylistReceiveToken(address _token) external onlyOwner {
         whiteListedReceiveTokens[_token] = false;
+    }
+
+    /**
+     *  EXTERNAL & VIEW FUNCTIONS SECTION
+     */
+
+    function getRouterAddress() external view returns (address) {
+        return address(router);
+    }
+
+    function getLinkTokenAddress() external view returns (address) {
+        return address(linkToken);
     }
 }
