@@ -141,7 +141,7 @@ contract Switchlane is OwnerIsCreator {
      * @param _token address of the token
      * @param _amount amount of token to be sended
      */
-    function _trasnferTokens(uint64 _destinationChainSelector, address _receiver, address _token, uint256 _amount)
+    function _transferTokens(uint64 _destinationChainSelector, address _receiver, address _token, uint256 _amount)
         internal
         onlyWhiteListedChain(_destinationChainSelector)
         onlyOwner
@@ -318,7 +318,7 @@ contract Switchlane is OwnerIsCreator {
             revert UnreachedMinimumAmount(toToken, minimumReceiveAmount, amountOut);
         }
 
-        _trasnferTokens(destinationChain, receiver, toToken, amountOut);
+        _transferTokens(destinationChain, receiver, toToken, amountOut);
     }
 
     /**
@@ -363,7 +363,7 @@ contract Switchlane is OwnerIsCreator {
             revert NotEnoughTokensToPayFees(fromToken, amount, leftTokens);
         }
 
-        _trasnferTokens(destinationChain, receiver, toToken, expectedOutputAmount);
+        _transferTokens(destinationChain, receiver, toToken, expectedOutputAmount);
     }
 
     /**
