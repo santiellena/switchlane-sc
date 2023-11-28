@@ -39,6 +39,10 @@ contract Switchlane is OwnerIsCreator {
     // Being 3000 the recommended value for most of pools
     uint24 public poolFee;
 
+    // Fixed fee for CCIP tx and profit for the protocol
+    // RECOMMENDED= 5e17
+    uint256 public linkFee;
+
     /**
      *  ERRORS SECTION
      */
@@ -50,6 +54,8 @@ contract Switchlane is OwnerIsCreator {
     error ReceiveTokenNotWhiteListed(address token);
     error NotEnoughTokenBalance(address sender, address token, uint256 amount);
     error SwapPairNotWhiteListed(address fromToken, address toToken);
+    error UnreachedMinimumAmount(address token, uint256 minimumAmount, uint256 actualAmount);
+    error NotEnoughTokensToPayFees(address token, uint256 amountSent, uint256 leftTokensToPayFees);
 
     /**
      *  EVENTS SECTION
@@ -116,11 +122,12 @@ contract Switchlane is OwnerIsCreator {
 
     // CONSTRUCTOR
 
-    constructor(address _router, address _linkToken, uint24 _poolFee, address _swapRouter) {
+    constructor(address _router, address _linkToken, uint24 _poolFee, address _swapRouter, uint256 _linkFee) {
         router = IRouterClient(_router);
         linkToken = LinkTokenInterface(_linkToken);
         poolFee = _poolFee;
         swapRouter = ISwapRouter(_swapRouter);
+        linkFee = _linkFee;
     }
 
     /**
@@ -179,20 +186,21 @@ contract Switchlane is OwnerIsCreator {
 
     /**
      *
+     * @param sender address of the erc 20 tokens owner
      * @param token address of the erc 20 token sent and used to pay fees
      * @param amount amount of the erc 20 token sent and used to pay fees
      */
-    function _receiveTokens(address token, uint256 amount)
+    function _receiveTokens(address sender, address token, uint256 amount)
         internal
         onlyWhiteListedReceiveTokens(token)
-        hasEnoughBalance(msg.sender, token, amount)
+        hasEnoughBalance(sender, token, amount)
     {
-        IERC20(token).approve(address(this), amount);
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        IERC20(token).transferFrom(sender, address(this), amount);
     }
 
     function _swapExactInputSingle(address fromToken, address toToken, uint256 amountIn, uint256 amountOutMinimum)
         internal
+        onlyWhiteListedSwapPair(fromToken, toToken)
         returns (uint256 amountOut)
     {
         linkToken.approve(address(swapRouter), amountIn);
@@ -213,6 +221,7 @@ contract Switchlane is OwnerIsCreator {
 
     function _swapExactOutputSingle(address fromToken, address toToken, uint256 amountOut, uint256 amountInMaximum)
         internal
+        onlyWhiteListedSwapPair(fromToken, toToken)
         returns (uint256 amountIn)
     {
         linkToken.approve(address(swapRouter), amountInMaximum);
@@ -252,7 +261,110 @@ contract Switchlane is OwnerIsCreator {
      *  EXTERNAL FUNCTIONS SECTION
      */
 
-    function switchlane() external {}
+    /**
+     *
+     * @param sender address that is sending the tokens
+     * @param receiver address that is receiving the tokens
+     * @param fromToken token being sent
+     * @param toToken token being received
+     * @param destinationChain chain where the toToken will be sent
+     * @param amount total amount of tokens of the 'fromToken'
+     * @param minimumReceiveAmount minimum expected amount to be sent to the receiver (optional)
+     */
+    function switchlaneExactInput(
+        address sender,
+        address receiver,
+        address fromToken,
+        address toToken,
+        uint64 destinationChain,
+        uint256 amount,
+        uint256 minimumReceiveAmount
+    )
+        //
+        external
+        onlyOwner
+    {
+        /**
+         * Steps:
+         *      1)  Collect/Receive ERC20 tokens
+         *      2)  Swap exact output to get the tokens for fees and profit
+         *      3)  Swap exact input with left ERC20 tokens from step 2
+         *          to send tokens to the receiver through CCIP
+         *      4)  Initiate CCIP tx
+         *      5)  Emit event on success
+         */
+
+        _receiveTokens(sender, fromToken, amount);
+
+        /**
+         * amountInMaximum = _calculateAmountInMaximum();
+         *
+         *         This previous funtion can be used to calculate the maximum amount of fromTokens
+         *         that are expected to be paid given price feeds data. So we are not paying a high price for the
+         *         token because of an eventual imbalance of the liquidity pool.
+         *
+         *         This can be fixed with the implementation of the minimumReceiveAmount parameter.
+         */
+
+        // Amount of the 'fromToken' used to pay fees
+        uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
+
+        uint256 leftAmount = amount - amountIn;
+
+        // Amount of the 'toTokens' received from the swap ready to be sent through CCIP
+        uint256 amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
+
+        if (amountOut < minimumReceiveAmount) {
+            revert UnreachedMinimumAmount(toToken, minimumReceiveAmount, amountOut);
+        }
+
+        _trasnferTokens(destinationChain, receiver, toToken, amountOut);
+    }
+
+    /**
+     *
+     * @param sender address that is sending the tokens
+     * @param receiver address that is receiving the tokens
+     * @param fromToken token being sent
+     * @param toToken token being received
+     * @param destinationChain chain where the toToken will be sent
+     * @param expectedOutputAmount expected amount to be sent to the receiver of 'toToken'
+     * @param amount amount of the 'fromToken' used
+     */
+    function switchlaneExactOutput(
+        address sender,
+        address receiver,
+        address fromToken,
+        address toToken,
+        uint64 destinationChain,
+        uint256 expectedOutputAmount,
+        uint256 amount
+    ) external onlyOwner {
+        /**
+         * Steps:
+         *      1)  Collect/Receive ERC20 tokens
+         *      2)  Swap exact output to get the tokens to send tokens
+         *          to the receiver through CCIP
+         *      3)  Swap exact input with left ERC20 tokens from step 2
+         *          for fees and profit
+         *      4)  Initiate CCIP tx
+         *      5)  Emit event on success
+         */
+
+        _receiveTokens(sender, fromToken, amount);
+
+        uint256 amountIn = _swapExactOutputSingle(fromToken, toToken, expectedOutputAmount, amount);
+
+        uint256 leftTokens = amount - amountIn;
+
+        uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
+
+        if (amountOut < linkFee) {
+            revert NotEnoughTokensToPayFees(fromToken, amount, leftTokens);
+        }
+
+        _trasnferTokens(destinationChain, receiver, toToken, expectedOutputAmount);
+    }
 
     /**
      *
