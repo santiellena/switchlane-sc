@@ -1,30 +1,43 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
+pragma abicoder v2;
 
+// Chainlink CCIP imports
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {OwnerIsCreator} from "@chainlink/contracts-ccip/src/v0.8/shared/access/OwnerIsCreator.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+// Chainlink imports
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+
+// Uniswap imports
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+
+// OpenZeppelin imports
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 using ECDSA for bytes32;
 
 contract Switchlane is OwnerIsCreator {
     /**
-     *  STORAGE VARIABLES SECTION
-     */
-
-    IRouterClient router;
-    LinkTokenInterface linkToken;
-
-    /**
      *  STATE VARIABLES SECTION
      */
 
+    IRouterClient private router;
+    LinkTokenInterface private linkToken;
+    ISwapRouter private swapRouter;
+
     mapping(uint64 => bool) public whiteListedChains;
-    mapping(uint64 => mapping(address => bool)) whiteListedTokensOnChains;
-    mapping(address => bool) whiteListedReceiveTokens;
+    mapping(uint64 => mapping(address => bool)) public whiteListedTokensOnChains;
+    mapping(address => bool) public whiteListedReceiveTokens;
+    // On the white list of swap pairs is important to know the direction of the swap.
+    // Swapping from LINK to USDC could be allowed but not necessarily from USDC to LINK.
+    mapping(address => mapping(address => bool)) public whiteListedSwapPair;
+
+    // There are 3 fee levels: 0.05% (500), 0.3% (3000) & 1% (10000).
+    // Being 3000 the recommended value for most of pools
+    uint24 public poolFee;
 
     /**
      *  ERRORS SECTION
@@ -36,6 +49,7 @@ contract Switchlane is OwnerIsCreator {
     error TokenOnChainNotWhiteListed(uint64 destinationChainSelector, address token);
     error ReceiveTokenNotWhiteListed(address token);
     error NotEnoughTokenBalance(address sender, address token, uint256 amount);
+    error SwapPairNotWhiteListed(address fromToken, address toToken);
 
     /**
      *  EVENTS SECTION
@@ -86,6 +100,13 @@ contract Switchlane is OwnerIsCreator {
         _;
     }
 
+    modifier onlyWhiteListedSwapPair(address fromToken, address toToken) {
+        if (!whiteListedSwapPair[fromToken][toToken]) {
+            revert SwapPairNotWhiteListed(fromToken, toToken);
+        }
+        _;
+    }
+
     modifier hasEnoughBalance(address sender, address token, uint256 amount) {
         if (IERC20(token).balanceOf(sender) < amount) {
             revert NotEnoughTokenBalance(sender, token, amount);
@@ -95,9 +116,11 @@ contract Switchlane is OwnerIsCreator {
 
     // CONSTRUCTOR
 
-    constructor(address _router, address _linkToken) {
+    constructor(address _router, address _linkToken, uint24 _poolFee, address _swapRouter) {
         router = IRouterClient(_router);
         linkToken = LinkTokenInterface(_linkToken);
+        poolFee = _poolFee;
+        swapRouter = ISwapRouter(_swapRouter);
     }
 
     /**
@@ -168,6 +191,51 @@ contract Switchlane is OwnerIsCreator {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
     }
 
+    function _swapExactInputSingle(address fromToken, address toToken, uint256 amountIn, uint256 amountOutMinimum)
+        internal
+        returns (uint256 amountOut)
+    {
+        linkToken.approve(address(swapRouter), amountIn);
+
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: fromToken,
+            tokenOut: toToken,
+            fee: poolFee,
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: amountOutMinimum,
+            sqrtPriceLimitX96: 0
+        });
+
+        amountOut = swapRouter.exactInputSingle(params);
+    }
+
+    function _swapExactOutputSingle(address fromToken, address toToken, uint256 amountOut, uint256 amountInMaximum)
+        internal
+        returns (uint256 amountIn)
+    {
+        linkToken.approve(address(swapRouter), amountInMaximum);
+
+        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams({
+            tokenIn: fromToken,
+            tokenOut: toToken,
+            fee: poolFee,
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountOut: amountOut,
+            amountInMaximum: amountInMaximum,
+            sqrtPriceLimitX96: 0
+        });
+
+        amountIn = swapRouter.exactOutputSingle(params);
+
+        if (amountIn < amountInMaximum) {
+            linkToken.approve(address(swapRouter), 0);
+            linkToken.transfer(address(this), amountInMaximum - amountIn);
+        }
+    }
+
     /**
      *  PUBLIC FUNCTIONS SECTION
      */
@@ -235,6 +303,26 @@ contract Switchlane is OwnerIsCreator {
     }
 
     /**
+     *
+     * @notice allow a swap pair to be swapped
+     */
+    function whitelistSwapPair(address fromToken, address toToken) external onlyOwner {
+        whiteListedSwapPair[fromToken][toToken] = true;
+    }
+
+    /**
+     *
+     * @notice deny a swap pair to be swapped
+     */
+    function denylistSwapPair(address fromToken, address toToken) external onlyOwner {
+        whiteListedSwapPair[fromToken][toToken] = false;
+    }
+
+    function changePoolFee(uint24 newPoolFee) external onlyOwner {
+        poolFee = newPoolFee;
+    }
+
+    /**
      *  EXTERNAL & VIEW FUNCTIONS SECTION
      */
 
@@ -244,5 +332,9 @@ contract Switchlane is OwnerIsCreator {
 
     function getLinkTokenAddress() external view returns (address) {
         return address(linkToken);
+    }
+
+    function getSwapRouter() external view returns (address) {
+        return address(swapRouter);
     }
 }

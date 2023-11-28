@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/santiellena/switchlane-sc#readme",
   "dependencies": {
-    "@chainlink/contracts-ccip": "^0.7.6"
+    "@chainlink/contracts-ccip": "^0.7.6",
+    "@uniswap/v3-periphery": "^1.4.4"
   }
 }
