@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
+import {ERC20Mock} from "../test/mock/ERC20Mock.sol";
 
 contract HelperConfig is Script {
     struct Fees {
@@ -36,6 +37,8 @@ contract HelperConfig is Script {
             activeNetworkConfig = getMumbaiConfig();
         } else if (block.chainid == POLYGON_CHAINID) {
             activeNetworkConfig = getPolygonConfig();
+        } else {
+            activeNetworkConfig = getOrCreateAnvilConfig();
         }
     }
 
@@ -87,6 +90,34 @@ contract HelperConfig is Script {
             deployerKey: vm.envUint("ANVIL_KEY"),
             wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
             usdcTokenAddress: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+        });
+    }
+
+    function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
+        if (activeNetworkConfig.routerAddress != address(0)) {
+            return activeNetworkConfig;
+        }
+
+        uint256 deployer = vm.envUint("ANVIL_KEY");
+
+        vm.startBroadcast(deployer);
+
+        ERC20Mock weth = new ERC20Mock("Wrapped ETH", "WETH");
+        ERC20Mock usdc = new ERC20Mock("Circle USD", "USDC");
+
+        vm.stopBroadcast();
+
+        Fees memory fees =
+            Fees({poolFee: DEFAULT_POOL_FEE, linkMarginFee: DEFAULT_LINK_FEE, linkPriceFeedAddress: address(1)});
+
+        return NetworkConfig({
+            routerAddress: address(2),
+            linkAddress: address(3),
+            swapRouterAddress: address(4),
+            fees: fees,
+            deployerKey: deployer,
+            wethTokenAddress: address(weth),
+            usdcTokenAddress: address(usdc)
         });
     }
 }
