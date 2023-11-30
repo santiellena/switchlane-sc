@@ -36,6 +36,8 @@ contract SwitchlaneForkTest is Test {
     // THE ENTRY POINT THAT EXECUTES THE USER OPERATIONS
     address public ENTRY_POINT = makeAddr("ENTRY_POINT");
 
+    uint256 constant INITIAL_DEPOSIT = 1e18;
+
     function setUp() public {
         // Brackets are used to avoid the "Stack Too Deep" issue
         // For more information: https://medium.com/aventus/stack-too-deep-error-in-solidity-5b8861891bae
@@ -51,8 +53,8 @@ contract SwitchlaneForkTest is Test {
         {
             // Give some fromTokens (WETH) for USER
             vm.startBroadcast(deployerKey);
-            IWETH(payable(wethTokenAddress)).deposit{value: 100}();
-            IWETH(payable(wethTokenAddress)).transfer(USER, 100);
+            IWETH(payable(wethTokenAddress)).deposit{value: INITIAL_DEPOSIT}();
+            IWETH(payable(wethTokenAddress)).transfer(USER, INITIAL_DEPOSIT);
             vm.stopBroadcast();
         }
     }
@@ -60,6 +62,6 @@ contract SwitchlaneForkTest is Test {
     function testBalance() public {
         uint256 balance = IWETH(payable(wethTokenAddress)).balanceOf(USER);
 
-        assertEq(balance, 100);
+        assertEq(balance, INITIAL_DEPOSIT);
     }
 }
