@@ -9,13 +9,14 @@ import {OwnerIsCreator} from "@chainlink/contracts-ccip/src/v0.8/shared/access/O
 
 // Chainlink imports
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 // Uniswap imports
 import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 // OpenZeppelin imports
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 using ECDSA for bytes32;
 
@@ -34,14 +35,18 @@ contract Switchlane is OwnerIsCreator {
     // On the white list of swap pairs is important to know the direction of the swap.
     // Swapping from LINK to USDC could be allowed but not necessarily from USDC to LINK.
     mapping(address => mapping(address => bool)) public whiteListedSwapPair;
+    mapping(address => address) private tokenAddressToPriceFeedUsdAddress;
 
     // There are 3 fee levels: 0.05% (500), 0.3% (3000) & 1% (10000).
     // Being 3000 the recommended value for most of pools
     uint24 public poolFee;
 
-    // Fixed fee for CCIP tx and profit for the protocol
-    // RECOMMENDED= 5e17
-    uint256 public linkFee;
+    uint256 private linkMarginFee;
+
+    // Price feed returns a number with 8 decimals and the whole system works with 18
+    int256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant PERCENTAGE_PRECISION = 1e22;
 
     /**
      *  ERRORS SECTION
@@ -56,6 +61,8 @@ contract Switchlane is OwnerIsCreator {
     error SwapPairNotWhiteListed(address fromToken, address toToken);
     error UnreachedMinimumAmount(address token, uint256 minimumAmount, uint256 actualAmount);
     error NotEnoughTokensToPayFees(address token, uint256 amountSent, uint256 leftTokensToPayFees);
+    error MustBeMoreThanZero(uint256 amount);
+    error MustHaveAssociatedPriceFeed(address token);
 
     /**
      *  EVENTS SECTION
@@ -120,14 +127,36 @@ contract Switchlane is OwnerIsCreator {
         _;
     }
 
+    modifier moreThanZero(uint256 amount) {
+        if (amount <= 0) {
+            revert MustBeMoreThanZero(amount);
+        }
+        _;
+    }
+
+    modifier hasPriceFeedAddressAssociated(address token) {
+        if (tokenAddressToPriceFeedUsdAddress[token] == address(0)) {
+            revert MustHaveAssociatedPriceFeed(token);
+        }
+        _;
+    }
+
     // CONSTRUCTOR
 
-    constructor(address _router, address _linkToken, uint24 _poolFee, address _swapRouter, uint256 _linkFee) {
+    constructor(
+        address _router,
+        address _linkToken,
+        uint24 _poolFee,
+        address _swapRouter,
+        uint256 _linkMarginFee,
+        address _linkPriceFeedAddress
+    ) {
         router = IRouterClient(_router);
         linkToken = LinkTokenInterface(_linkToken);
         poolFee = _poolFee;
         swapRouter = ISwapRouter(_swapRouter);
-        linkFee = _linkFee;
+        linkMarginFee = _linkMarginFee;
+        tokenAddressToPriceFeedUsdAddress[_linkToken] = _linkPriceFeedAddress;
     }
 
     /**
@@ -144,6 +173,7 @@ contract Switchlane is OwnerIsCreator {
     function _transferTokens(uint64 _destinationChainSelector, address _receiver, address _token, uint256 _amount)
         internal
         onlyWhiteListedChain(_destinationChainSelector)
+        moreThanZero(_amount)
         onlyOwner
         returns (bytes32 messageId)
     {
@@ -193,6 +223,7 @@ contract Switchlane is OwnerIsCreator {
     function _receiveTokens(address sender, address token, uint256 amount)
         internal
         onlyWhiteListedReceiveTokens(token)
+        moreThanZero(amount)
         hasEnoughBalance(sender, token, amount)
     {
         IERC20(token).transferFrom(sender, address(this), amount);
@@ -201,6 +232,8 @@ contract Switchlane is OwnerIsCreator {
     function _swapExactInputSingle(address fromToken, address toToken, uint256 amountIn, uint256 amountOutMinimum)
         internal
         onlyWhiteListedSwapPair(fromToken, toToken)
+        moreThanZero(amountIn)
+        moreThanZero(amountOutMinimum)
         returns (uint256 amountOut)
     {
         linkToken.approve(address(swapRouter), amountIn);
@@ -222,6 +255,8 @@ contract Switchlane is OwnerIsCreator {
     function _swapExactOutputSingle(address fromToken, address toToken, uint256 amountOut, uint256 amountInMaximum)
         internal
         onlyWhiteListedSwapPair(fromToken, toToken)
+        moreThanZero(amountOut)
+        moreThanZero(amountInMaximum)
         returns (uint256 amountIn)
     {
         linkToken.approve(address(swapRouter), amountInMaximum);
@@ -257,6 +292,78 @@ contract Switchlane is OwnerIsCreator {
         IERC20(_token).transfer(_beneficiary, amount);
     }
 
+    function calculateLinkFees(
+        address toToken,
+        address fromToken,
+        uint256 expectedAmountToToken,
+        uint64 destinationChain
+    )
+        public
+        view
+        moreThanZero(expectedAmountToToken)
+        onlyWhiteListedSwapPair(fromToken, toToken)
+        onlyWhiteListedChain(destinationChain)
+        returns (uint256 linkFee)
+    {
+        Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
+        Client.EVMTokenAmount memory tokenAmount =
+            Client.EVMTokenAmount({token: toToken, amount: expectedAmountToToken});
+        tokenAmounts[0] = tokenAmount;
+
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(msg.sender),
+            data: "",
+            tokenAmounts: tokenAmounts,
+            /**
+             * - "strict" is used for strict sequencing
+             *  -  it will prevent any following messages from the same sender from
+             *  being processed until the current message is successfully executed.
+             *  DOCS: https://docs.chain.link/ccip/best-practices#sequencing
+             */
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 0, strict: false})),
+            feeToken: address(linkToken)
+        });
+
+        // ccipFees is the amount of LINK tokens that the tx will cost
+        uint256 ccipFees = router.getFee(destinationChain, message);
+
+        linkFee = ccipFees + linkMarginFee;
+    }
+
+    function calculateProtocolFees(
+        address fromToken,
+        address toToken,
+        uint256 amountFromToken,
+        uint256 expectedAmountToToken,
+        uint64 destinationChain
+    )
+        public
+        view
+        moreThanZero(amountFromToken)
+        moreThanZero(expectedAmountToToken)
+        onlyWhiteListedSwapPair(fromToken, toToken)
+        onlyWhiteListedChain(destinationChain)
+        returns (uint256 fees)
+    {
+        uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedAmountToToken, destinationChain);
+
+        AggregatorV3Interface priceFeedLink =
+            AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[address(linkToken)]);
+        (, int256 priceLink,,,) = priceFeedLink.latestRoundData();
+
+        uint256 linkFeesInUsd = uint256(uint256(priceLink * ADDITIONAL_FEED_PRECISION) * linkFee) / PRECISION;
+
+        uint256 fromTokenFees = (amountFromToken * uint256(poolFee) * PRECISION) / PERCENTAGE_PRECISION;
+
+        AggregatorV3Interface priceFeedFromToken = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[fromToken]);
+        (, int256 priceFromToken,,,) = priceFeedFromToken.latestRoundData();
+
+        uint256 fromTokenFeesInUsd =
+            uint256(uint256(priceFromToken * ADDITIONAL_FEED_PRECISION) * fromTokenFees) / PRECISION;
+
+        fees = linkFeesInUsd + fromTokenFeesInUsd;
+    }
+
     /**
      *  EXTERNAL FUNCTIONS SECTION
      */
@@ -279,20 +386,19 @@ contract Switchlane is OwnerIsCreator {
         uint64 destinationChain,
         uint256 amount,
         uint256 minimumReceiveAmount
-    )
-        //
-        external
-        onlyOwner
-    {
+    ) external onlyOwner moreThanZero(amount) moreThanZero(minimumReceiveAmount) {
         /**
          * Steps:
-         *      1)  Collect/Receive ERC20 tokens
-         *      2)  Swap exact output to get the tokens for fees and profit
-         *      3)  Swap exact input with left ERC20 tokens from step 2
+         *      1)  Calculate fees
+         *      2)  Collect/Receive ERC20 tokens
+         *      3)  Swap exact output to get the tokens for fees and profit
+         *      4)  Swap exact input with left ERC20 tokens from step 2
          *          to send tokens to the receiver through CCIP
-         *      4)  Initiate CCIP tx
-         *      5)  Emit event on success
+         *      5)  Initiate CCIP tx
+         *      6)  Emit event on success
          */
+
+        uint256 linkFee = calculateLinkFees(fromToken, toToken, minimumReceiveAmount, destinationChain);
 
         _receiveTokens(sender, fromToken, amount);
 
@@ -319,6 +425,8 @@ contract Switchlane is OwnerIsCreator {
         }
 
         _transferTokens(destinationChain, receiver, toToken, amountOut);
+
+        // After this function for security reasons the user must send token.approve(0);
     }
 
     /**
@@ -339,7 +447,7 @@ contract Switchlane is OwnerIsCreator {
         uint64 destinationChain,
         uint256 expectedOutputAmount,
         uint256 amount
-    ) external onlyOwner {
+    ) external onlyOwner moreThanZero(amount) moreThanZero(expectedOutputAmount) {
         /**
          * Steps:
          *      1)  Collect/Receive ERC20 tokens
@@ -358,6 +466,8 @@ contract Switchlane is OwnerIsCreator {
         uint256 leftTokens = amount - amountIn;
 
         uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
+
+        uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedOutputAmount, destinationChain);
 
         if (amountOut < linkFee) {
             revert NotEnoughTokensToPayFees(fromToken, amount, leftTokens);
@@ -432,6 +542,25 @@ contract Switchlane is OwnerIsCreator {
 
     function changePoolFee(uint24 newPoolFee) external onlyOwner {
         poolFee = newPoolFee;
+    }
+
+    /**
+     * @notice adds a price feed address that allows the system to get the usd value to calculate fees
+     *
+     * @param token address of a token that can be sent (fromToken)
+     * @param priceFeed address of the price feed contract token/USD
+     */
+    function addPriceFeedUsdAddressToToken(address token, address priceFeed) external onlyOwner {
+        tokenAddressToPriceFeedUsdAddress[token] = priceFeed;
+    }
+
+    /**
+     * @notice removes a price feed address that allows the system to get the usd value to calculate fees
+     *
+     * @param token address of a token that can be sent (fromToken)
+     */
+    function removePriceFeedUsdAddressToToken(address token) external onlyOwner {
+        tokenAddressToPriceFeedUsdAddress[token] = address(0);
     }
 
     /**
