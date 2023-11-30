@@ -1,66 +1,22 @@
-## Foundry
+# Switchlane
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Quickstart
 
-Foundry consists of:
+The Makefile has the *install* command to download and install everything you need to start testing and developing.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+```bash
+$ make install
 ```
 
-### Test
+Before starting the development or testing you need to set up your environment variables:
+1) Create your *.env* file
+2) Put your own private key (not needed for testing)
+3) Go to [Chiannodes](https://app.chainnodes.org/) or to [Alchemy](https://www.alchemy.com/) to get yout RPC URLs to connect and get the fork data.
 
-```shell
-$ forge test
-```
+As Switchlane depends directly on other smart contracts most of its functions (if not all of them) need interactions with the blockchain. Additionally, mocking this complex systems is completely impossible, so all tests are fork tests.
 
-### Format
+To run fork tests, located on *test/fork/Switchlane.t.sol*:
 
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+```bash
+$ make test
 ```
