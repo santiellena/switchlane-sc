@@ -23,7 +23,7 @@ contract SwitchlaneForkTest is Test {
     Switchlane switchlane;
     address linkAddress;
     // The Fees struct was made to avoid the "Stack Too Deep" issue
-    // Fees { uint256 linkFee, uint24 poolFee }
+    // Fees { uint256 linkMarginFee, uint24 poolFee, address linkPriceFeedAddress }
     HelperConfig.Fees fees;
     address router;
     address swapRouter;

@@ -5,8 +5,9 @@ import {Script, console} from "forge-std/Script.sol";
 
 contract HelperConfig is Script {
     struct Fees {
-        uint256 linkFee;
+        uint256 linkMarginFee;
         uint24 poolFee;
+        address linkPriceFeedAddress;
     }
 
     struct NetworkConfig {
@@ -24,7 +25,7 @@ contract HelperConfig is Script {
     uint256 public constant MAINNET_CHAINID = 1;
 
     uint24 public constant DEFAULT_POOL_FEE = 3000;
-    uint256 public constant DEFAULT_LINK_FEE = 5e17;
+    uint256 public constant DEFAULT_LINK_FEE = 1e17;
 
     NetworkConfig public activeNetworkConfig;
 
@@ -39,7 +40,11 @@ contract HelperConfig is Script {
     }
 
     function getMumbaiConfig() public view returns (NetworkConfig memory) {
-        Fees memory fees = Fees({poolFee: DEFAULT_POOL_FEE, linkFee: DEFAULT_LINK_FEE});
+        Fees memory fees = Fees({
+            poolFee: DEFAULT_POOL_FEE,
+            linkMarginFee: DEFAULT_LINK_FEE,
+            linkPriceFeedAddress: 0x1C2252aeeD50e0c9B64bDfF2735Ee3C932F5C408
+        });
         return NetworkConfig({
             routerAddress: 0x70499c328e1E2a3c41108bd3730F6670a44595D1,
             linkAddress: 0x326C977E6efc84E512bB9C30f76E30c160eD06FB,
@@ -52,7 +57,11 @@ contract HelperConfig is Script {
     }
 
     function getPolygonConfig() public view returns (NetworkConfig memory) {
-        Fees memory fees = Fees({poolFee: DEFAULT_POOL_FEE, linkFee: DEFAULT_LINK_FEE});
+        Fees memory fees = Fees({
+            poolFee: DEFAULT_POOL_FEE,
+            linkMarginFee: DEFAULT_LINK_FEE,
+            linkPriceFeedAddress: 0xd9FFdb71EbE7496cC440152d43986Aae0AB76665
+        });
         return NetworkConfig({
             routerAddress: 0x3C3D92629A02a8D95D5CB9650fe49C3544f69B43,
             linkAddress: 0xb0897686c545045aFc77CF20eC7A532E3120E0F1,
@@ -65,7 +74,11 @@ contract HelperConfig is Script {
     }
 
     function getMainnetConfig() public view returns (NetworkConfig memory) {
-        Fees memory fees = Fees({poolFee: DEFAULT_POOL_FEE, linkFee: DEFAULT_LINK_FEE});
+        Fees memory fees = Fees({
+            poolFee: DEFAULT_POOL_FEE,
+            linkMarginFee: DEFAULT_LINK_FEE,
+            linkPriceFeedAddress: 0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c
+        });
         return NetworkConfig({
             routerAddress: 0xE561d5E02207fb5eB32cca20a699E0d8919a1476,
             linkAddress: 0x514910771AF9Ca656af840dff83E8264EcF986CA,

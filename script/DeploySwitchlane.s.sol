@@ -22,7 +22,8 @@ contract DeploySwitchlane is Script {
 
         vm.startBroadcast(deployerKey);
 
-        switchlane = new Switchlane(routerAddress, linkAddress, fees.poolFee, swapRouterAddress, fees.linkFee);
+        switchlane =
+        new Switchlane(routerAddress, linkAddress, fees.poolFee, swapRouterAddress, fees.linkMarginFee, fees.linkPriceFeedAddress);
 
         vm.stopBroadcast();
 
