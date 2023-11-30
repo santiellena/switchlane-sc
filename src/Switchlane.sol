@@ -52,17 +52,17 @@ contract Switchlane is OwnerIsCreator {
      *  ERRORS SECTION
      */
 
-    error NotEnoughLinkBalance(uint256 currentBalance, uint256 calculatedFees);
-    error NothingToWithdraw(address);
-    error DestinationChainNotWhiteListed(uint64 destinationChainSelector);
-    error TokenOnChainNotWhiteListed(uint64 destinationChainSelector, address token);
-    error ReceiveTokenNotWhiteListed(address token);
-    error NotEnoughTokenBalance(address sender, address token, uint256 amount);
-    error SwapPairNotWhiteListed(address fromToken, address toToken);
-    error UnreachedMinimumAmount(address token, uint256 minimumAmount, uint256 actualAmount);
-    error NotEnoughTokensToPayFees(address token, uint256 amountSent, uint256 leftTokensToPayFees);
-    error MustBeMoreThanZero(uint256 amount);
-    error MustHaveAssociatedPriceFeed(address token);
+    error NotEnoughLinkBalance();
+    error NothingToWithdraw();
+    error DestinationChainNotWhiteListed();
+    error TokenOnChainNotWhiteListed();
+    error ReceiveTokenNotWhiteListed();
+    error NotEnoughTokenBalance();
+    error SwapPairNotWhiteListed();
+    error UnreachedMinimumAmount();
+    error NotEnoughTokensToPayFees();
+    error MustBeMoreThanZero();
+    error MustHaveAssociatedPriceFeed();
 
     /**
      *  EVENTS SECTION
@@ -94,49 +94,49 @@ contract Switchlane is OwnerIsCreator {
 
     modifier onlyWhiteListedChain(uint64 _destinationChainSelector) {
         if (!whiteListedChains[_destinationChainSelector]) {
-            revert DestinationChainNotWhiteListed(_destinationChainSelector);
+            revert DestinationChainNotWhiteListed();
         }
         _;
     }
 
     modifier onlyWhiteListedTokenOnChain(uint64 _destinationChainSelector, address _token) {
         if (!whiteListedTokensOnChains[_destinationChainSelector][_token]) {
-            revert TokenOnChainNotWhiteListed(_destinationChainSelector, _token);
+            revert TokenOnChainNotWhiteListed();
         }
         _;
     }
 
     modifier onlyWhiteListedReceiveTokens(address _token) {
         if (!whiteListedReceiveTokens[_token]) {
-            revert ReceiveTokenNotWhiteListed(_token);
+            revert ReceiveTokenNotWhiteListed();
         }
         _;
     }
 
     modifier onlyWhiteListedSwapPair(address fromToken, address toToken) {
         if (!whiteListedSwapPair[fromToken][toToken]) {
-            revert SwapPairNotWhiteListed(fromToken, toToken);
+            revert SwapPairNotWhiteListed();
         }
         _;
     }
 
     modifier hasEnoughBalance(address sender, address token, uint256 amount) {
         if (IERC20(token).balanceOf(sender) < amount) {
-            revert NotEnoughTokenBalance(sender, token, amount);
+            revert NotEnoughTokenBalance();
         }
         _;
     }
 
     modifier moreThanZero(uint256 amount) {
         if (amount <= 0) {
-            revert MustBeMoreThanZero(amount);
+            revert MustBeMoreThanZero();
         }
         _;
     }
 
     modifier hasPriceFeedAddressAssociated(address token) {
         if (tokenAddressToPriceFeedUsdAddress[token] == address(0)) {
-            revert MustHaveAssociatedPriceFeed(token);
+            revert MustHaveAssociatedPriceFeed();
         }
         _;
     }
@@ -200,7 +200,7 @@ contract Switchlane is OwnerIsCreator {
         uint256 balanceOfContract = linkToken.balanceOf(address(this));
 
         if (fees > balanceOfContract) {
-            revert NotEnoughLinkBalance(balanceOfContract, fees);
+            revert NotEnoughLinkBalance();
         }
 
         linkToken.approve(address(router), fees);
@@ -305,7 +305,7 @@ contract Switchlane is OwnerIsCreator {
     function withdrawToken(address _beneficiary, address _token) public onlyOwner {
         uint256 amount = IERC20(_token).balanceOf(address(this));
 
-        if (amount == 0) revert NothingToWithdraw(address(this));
+        if (amount == 0) revert NothingToWithdraw();
 
         IERC20(_token).transfer(_beneficiary, amount);
     }
@@ -430,7 +430,7 @@ contract Switchlane is OwnerIsCreator {
         uint256 amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
 
         if (amountOut < minimumReceiveAmount) {
-            revert UnreachedMinimumAmount(toToken, minimumReceiveAmount, amountOut);
+            revert UnreachedMinimumAmount();
         }
 
         _transferTokens(destinationChain, receiver, toToken, amountOut);
@@ -479,7 +479,7 @@ contract Switchlane is OwnerIsCreator {
         uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedOutputAmount, destinationChain);
 
         if (amountOut < linkFee) {
-            revert NotEnoughTokensToPayFees(fromToken, amount, leftTokens);
+            revert NotEnoughTokensToPayFees();
         }
 
         _transferTokens(destinationChain, receiver, toToken, expectedOutputAmount);
