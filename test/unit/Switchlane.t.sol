@@ -30,7 +30,10 @@ contract SwitchlaneTest is Test {
     // THE ENTRY POINT THAT EXECUTES THE USER OPERATIONS
     address public ENTRY_POINT = makeAddr("ENTRY_POINT");
 
-    uint256 constant INITIAL_DEPOSIT = 1e18;
+    uint256 public constant INITIAL_DEPOSIT = 1e18;
+    uint256 public constant AMOUNT_TO = 100e6;
+    uint256 public constant AMOUNT_FROM = 1e18;
+    uint64 public constant POLYGON_DESTINATION_CHAIN = 4051577828743386545;
 
     function setUp() public {
         // Brackets are used to avoid the "Stack Too Deep" issue
@@ -56,6 +59,12 @@ contract SwitchlaneTest is Test {
         _;
     }
 
+    modifier whitelistChain(uint64 destinationChain) {
+        vm.prank(switchlaneOwner);
+        switchlane.whitelistChain(destinationChain);
+        _;
+    }
+
     // TESTS SECTION
 
     function testWithdrawTokenRevertsIfNothingToWithdraw() public {
@@ -70,5 +79,12 @@ contract SwitchlaneTest is Test {
         switchlane.withdrawToken(USER, wethTokenAddress);
     }
 
-    function testCalculateLinkFeesRevertsIfAmountIsZero() public {}
+    function testCalculateLinkFeesRevertsIfAmountIsZero()
+        public
+        whitelistChain(POLYGON_DESTINATION_CHAIN)
+        whitelistSwapPair(wethTokenAddress, usdcTokenAddress)
+    {
+        vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
+        switchlane.calculateLinkFees(wethTokenAddress, usdcTokenAddress, 0, POLYGON_DESTINATION_CHAIN);
+    }
 }
