@@ -282,6 +282,17 @@ contract Switchlane is OwnerIsCreator {
 
     function _getTokenUsdValue(address token, uint256 amount) internal view returns (uint256 amountInUsd) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[token]);
+
+        /**
+         * latestRoundData returns:
+         *
+         *   - uint80 roundId,
+         *   - int256 answer,
+         *   - uint256 startedAt,
+         *   - uint256 updatedAt,
+         *   - uint80 answeredInRound
+         */
+
         (, int256 price,,,) = priceFeed.latestRoundData();
 
         amountInUsd = uint256(uint256(price * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
