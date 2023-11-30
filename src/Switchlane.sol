@@ -280,6 +280,13 @@ contract Switchlane is OwnerIsCreator {
         }
     }
 
+    function _getTokenUsdValue(address token, uint256 amount) internal view returns (uint256 amountInUsd) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+
+        amountInUsd = uint256(uint256(price * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    }
+
     /**
      *  PUBLIC FUNCTIONS SECTION
      */
@@ -346,20 +353,11 @@ contract Switchlane is OwnerIsCreator {
         returns (uint256 fees)
     {
         uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedAmountToToken, destinationChain);
-
-        AggregatorV3Interface priceFeedLink =
-            AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[address(linkToken)]);
-        (, int256 priceLink,,,) = priceFeedLink.latestRoundData();
-
-        uint256 linkFeesInUsd = uint256(uint256(priceLink * ADDITIONAL_FEED_PRECISION) * linkFee) / PRECISION;
+        uint256 linkFeesInUsd = _getTokenUsdValue(address(linkToken), linkFee);
 
         uint256 fromTokenFees = (amountFromToken * uint256(poolFee) * PRECISION) / PERCENTAGE_PRECISION;
 
-        AggregatorV3Interface priceFeedFromToken = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[fromToken]);
-        (, int256 priceFromToken,,,) = priceFeedFromToken.latestRoundData();
-
-        uint256 fromTokenFeesInUsd =
-            uint256(uint256(priceFromToken * ADDITIONAL_FEED_PRECISION) * fromTokenFees) / PRECISION;
+        uint256 fromTokenFeesInUsd = _getTokenUsdValue(fromToken, fromTokenFees);
 
         fees = linkFeesInUsd + fromTokenFeesInUsd;
     }
