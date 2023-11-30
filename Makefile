@@ -4,12 +4,6 @@
 
 ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
-FORK_BLOCK_NUMBER := 50546012
-
-FORK_CHAIN_ID := 137
-
-CHAIN_ID := 137
-
 FORK_TEST_PATH := "test/fork/Switchlane.t.sol"
 
 install :
