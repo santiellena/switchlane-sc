@@ -20,3 +20,15 @@ To run fork tests, located on *test/fork/Switchlane.t.sol*:
 ```bash
 $ make test
 ```
+
+### Considerations:
+
+- When switchlaneExactInput or  switchlaneExactOutput are executed, if the 'fromToken' is the same as the 'toToken' then one swap does not need to be made (just one to get link tokens to pay fees).
+
+- After the execution of the previously mentioned functions, the user must execute a third transaction: erc20.approve(0).
+
+- If the user is sending LINK and expects LINK to be received, none swap must be made.
+
+- If the user is sending LINK and expects to receive other token, just one swap must be made (from LINK to that other token, leaving an amount to pay fees).
+
+- If the user is sending other token and expects to receive LINK, just one swap must be made (the whole amount of that token into LINK)
