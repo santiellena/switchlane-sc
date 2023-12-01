@@ -280,24 +280,6 @@ contract Switchlane is OwnerIsCreator {
         }
     }
 
-    function _getTokenUsdValue(address token, uint256 amount) internal view returns (uint256 amountInUsd) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[token]);
-
-        /**
-         * latestRoundData returns:
-         *
-         *   - uint80 roundId,
-         *   - int256 answer,
-         *   - uint256 startedAt,
-         *   - uint256 updatedAt,
-         *   - uint80 answeredInRound
-         */
-
-        (, int256 price,,,) = priceFeed.latestRoundData();
-
-        amountInUsd = uint256(uint256(price * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
-    }
-
     /**
      *  PUBLIC FUNCTIONS SECTION
      */
@@ -311,8 +293,8 @@ contract Switchlane is OwnerIsCreator {
     }
 
     function calculateLinkFees(
-        address toToken,
         address fromToken,
+        address toToken,
         uint256 expectedAmountToToken,
         uint64 destinationChain
     )
@@ -364,13 +346,31 @@ contract Switchlane is OwnerIsCreator {
         returns (uint256 fees)
     {
         uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedAmountToToken, destinationChain);
-        uint256 linkFeesInUsd = _getTokenUsdValue(address(linkToken), linkFee);
+        uint256 linkFeesInUsd = getTokenUsdValue(address(linkToken), linkFee);
 
         uint256 fromTokenFees = (amountFromToken * uint256(poolFee) * PRECISION) / PERCENTAGE_PRECISION;
 
-        uint256 fromTokenFeesInUsd = _getTokenUsdValue(fromToken, fromTokenFees);
+        uint256 fromTokenFeesInUsd = getTokenUsdValue(fromToken, fromTokenFees);
 
         fees = linkFeesInUsd + fromTokenFeesInUsd;
+    }
+
+    function getTokenUsdValue(address token, uint256 amount) public view returns (uint256 amountInUsd) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[token]);
+
+        /**
+         * latestRoundData returns:
+         *
+         *   - uint80 roundId,
+         *   - int256 answer,
+         *   - uint256 startedAt,
+         *   - uint256 updatedAt,
+         *   - uint80 answeredInRound
+         */
+
+        (, int256 price,,,) = priceFeed.latestRoundData();
+
+        amountInUsd = uint256(uint256(price * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }
 
     /**
