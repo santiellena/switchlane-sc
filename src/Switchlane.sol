@@ -407,8 +407,6 @@ contract Switchlane is OwnerIsCreator {
          *      6)  Emit event on success
          */
 
-        uint256 linkFee = calculateLinkFees(fromToken, toToken, minimumReceiveAmount, destinationChain);
-
         _receiveTokens(sender, fromToken, amount);
 
         /**
@@ -421,19 +419,31 @@ contract Switchlane is OwnerIsCreator {
          *         This can be fixed with the implementation of the minimumReceiveAmount parameter.
          */
 
-        // Amount of the 'fromToken' used to pay fees
-        uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
+        if (fromToken == address(linkToken) && toToken == address(linkToken)) {
+            _transferTokens(destinationChain, receiver, toToken, amount);
+        } else {
+            uint256 linkFee = calculateLinkFees(fromToken, toToken, minimumReceiveAmount, destinationChain);
+            // Amount of the 'fromToken' used to pay fees
+            uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
 
-        uint256 leftAmount = amount - amountIn;
+            uint256 leftAmount = amount - amountIn;
 
-        // Amount of the 'toTokens' received from the swap ready to be sent through CCIP
-        uint256 amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
+            // Amount of the 'toTokens' received from the swap ready to be sent through CCIP
+            uint256 amountOut;
 
-        if (amountOut < minimumReceiveAmount) {
-            revert UnreachedMinimumAmount();
+            // This conditional statement lets the protocol allow the sending of the same
+            // 'fromToken' and 'toToken'
+            if (fromToken != toToken) {
+                amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
+                if (amountOut < minimumReceiveAmount) {
+                    revert UnreachedMinimumAmount();
+                }
+            } else {
+                amountOut = leftAmount;
+            }
+
+            _transferTokens(destinationChain, receiver, toToken, amountOut);
         }
-
-        _transferTokens(destinationChain, receiver, toToken, amountOut);
 
         // After this function for security reasons the user must send token.approve(0);
     }
@@ -470,16 +480,37 @@ contract Switchlane is OwnerIsCreator {
 
         _receiveTokens(sender, fromToken, amount);
 
-        uint256 amountIn = _swapExactOutputSingle(fromToken, toToken, expectedOutputAmount, amount);
-
-        uint256 leftTokens = amount - amountIn;
-
-        uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
-
         uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedOutputAmount, destinationChain);
 
-        if (amountOut < linkFee) {
-            revert NotEnoughTokensToPayFees();
+        // This conditional statement lets the protocol allow the sending of the same
+        // 'fromToken' and 'toToken'
+        uint256 leftTokens;
+
+        if (fromToken == address(linkToken) && toToken == address(linkToken)) {
+            // Check if both tokens are LINK so zero swaps are executed
+            leftTokens = amount - linkFee;
+
+            if (leftTokens < expectedOutputAmount) {
+                revert NotEnoughTokensToPayFees();
+            }
+        } else if (fromToken != toToken) {
+            uint256 amountIn = _swapExactOutputSingle(fromToken, toToken, expectedOutputAmount, amount);
+
+            leftTokens = amount - amountIn;
+
+            uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
+
+            if (amountOut < linkFee) {
+                revert NotEnoughTokensToPayFees();
+            }
+        } else {
+            uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
+
+            leftTokens = amount - amountIn;
+
+            if (leftTokens < expectedOutputAmount) {
+                revert NotEnoughTokensToPayFees();
+            }
         }
 
         _transferTokens(destinationChain, receiver, toToken, expectedOutputAmount);
