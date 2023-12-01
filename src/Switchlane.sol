@@ -587,4 +587,8 @@ contract Switchlane is OwnerIsCreator {
     function getSwapRouter() external view returns (address) {
         return address(swapRouter);
     }
+
+    function getTokenPriceFeedAddress(address token) external view onlyOwner returns (address) {
+        return tokenAddressToPriceFeedUsdAddress[token];
+    }
 }

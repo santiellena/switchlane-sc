@@ -85,6 +85,12 @@ contract SwitchlaneTest is Test {
         _;
     }
 
+    modifier allowlistReceiveToken(address token) {
+        vm.prank(switchlaneOwner);
+        switchlane.allowlistReceiveToken(token);
+        _;
+    }
+
     // TESTS SECTION
 
     function testWithdrawTokenRevertsIfNothingToWithdraw() public {
@@ -219,5 +225,90 @@ contract SwitchlaneTest is Test {
         switchlane.denylistTokenOnChain(POLYGON_DESTINATION_CHAIN, wethTokenAddress);
 
         assert(!switchlane.whiteListedTokensOnChains(POLYGON_DESTINATION_CHAIN, wethTokenAddress));
+    }
+
+    function testAllowlistReceiveToken() public {
+        vm.prank(switchlaneOwner);
+        switchlane.allowlistReceiveToken(usdcTokenAddress);
+
+        assert(switchlane.whiteListedReceiveTokens(usdcTokenAddress));
+    }
+
+    function testDenylistReceiveToken() public allowlistReceiveToken(usdcTokenAddress) {
+        vm.prank(switchlaneOwner);
+        switchlane.denylistReceiveToken(usdcTokenAddress);
+
+        assert(!switchlane.whiteListedReceiveTokens(usdcTokenAddress));
+    }
+
+    function testWhitelistSwapPair() public {
+        vm.prank(switchlaneOwner);
+        switchlane.whitelistSwapPair(wethTokenAddress, usdcTokenAddress);
+
+        assert(switchlane.whiteListedSwapPair(wethTokenAddress, usdcTokenAddress));
+    }
+
+    function testDenylistSwapPair() public whitelistSwapPair(wethTokenAddress, usdcTokenAddress) {
+        vm.prank(switchlaneOwner);
+        switchlane.denylistSwapPair(wethTokenAddress, usdcTokenAddress);
+
+        assert(!switchlane.whiteListedSwapPair(wethTokenAddress, usdcTokenAddress));
+    }
+
+    function testChangePoolFee() public {
+        uint24 actualPreviousPoolFee = switchlane.poolFee();
+        uint24 expectedPreviousPoolFee = 3000;
+
+        assertEq(actualPreviousPoolFee, expectedPreviousPoolFee);
+
+        vm.prank(switchlaneOwner);
+        uint24 newPoolFee = 1500;
+        switchlane.changePoolFee(newPoolFee);
+
+        assertEq(newPoolFee, switchlane.poolFee());
+    }
+
+    function testAddPriceFeedUsdAddressToToken() public {
+        vm.startPrank(switchlaneOwner);
+
+        switchlane.addPriceFeedUsdAddressToToken(wethTokenAddress, address(wethPriceFeed));
+        address actualPriceFeedAddress = switchlane.getTokenPriceFeedAddress(wethTokenAddress);
+        vm.stopPrank();
+
+        assertEq(address(wethPriceFeed), actualPriceFeedAddress);
+    }
+
+    function testRemovePriceFeedUsdAddressToToken()
+        public
+        addPriceFeedToToken(wethTokenAddress, address(wethPriceFeed))
+    {
+        vm.startPrank(switchlaneOwner);
+
+        switchlane.removePriceFeedUsdAddressToToken(wethTokenAddress);
+        address actualPriceFeedAddress = switchlane.getTokenPriceFeedAddress(wethTokenAddress);
+        vm.stopPrank();
+
+        assertEq(address(0), actualPriceFeedAddress);
+    }
+
+    function testGetRouterAddress() public {
+        address actualRouterAddress = switchlane.getRouterAddress();
+        address expectedRouterAddress = router;
+
+        assertEq(actualRouterAddress, expectedRouterAddress);
+    }
+
+    function testGetLinkTokenAddress() public {
+        address actualLinkTokenAddress = switchlane.getLinkTokenAddress();
+        address expectedLinkTokenAddress = linkAddress;
+
+        assertEq(actualLinkTokenAddress, expectedLinkTokenAddress);
+    }
+
+    function testGetSwapRouterAddress() public {
+        address actualSwapRouterAddress = switchlane.getSwapRouter();
+        address expectedSwapRouterAddress = swapRouter;
+
+        assertEq(actualSwapRouterAddress, expectedSwapRouterAddress);
     }
 }
