@@ -398,48 +398,52 @@ contract Switchlane is OwnerIsCreator {
     ) external onlyOwner moreThanZero(amount) moreThanZero(minimumReceiveAmount) {
         /**
          * Steps:
-         *      1)  Calculate fees
-         *      2)  Collect/Receive ERC20 tokens
+         *      1)  Collect/Receive ERC20 tokens
+         *      2)  Calculate fees
          *      3)  Swap exact output to get the tokens for fees and profit
          *      4)  Swap exact input with left ERC20 tokens from step 2
          *          to send tokens to the receiver through CCIP
          *      5)  Initiate CCIP tx
          *      6)  Emit event on success
+         *
+         *      The previously mentioned steps are executed just in case non of the tokens involved are LINK
          */
 
         _receiveTokens(sender, fromToken, amount);
 
-        /**
-         * amountInMaximum = _calculateAmountInMaximum();
-         *
-         *         This previous funtion can be used to calculate the maximum amount of fromTokens
-         *         that are expected to be paid given price feeds data. So we are not paying a high price for the
-         *         token because of an eventual imbalance of the liquidity pool.
-         *
-         *         This can be fixed with the implementation of the minimumReceiveAmount parameter.
-         */
+        uint256 linkFee = calculateLinkFees(fromToken, toToken, minimumReceiveAmount, destinationChain);
 
         if (fromToken == address(linkToken) && toToken == address(linkToken)) {
-            _transferTokens(destinationChain, receiver, toToken, amount);
+            // If the token received and the token sent are LINK, then the protocol just need to deduct the fees
+            // and send the left tokens.
+            uint256 amountToSend = amount - linkFee;
+            _transferTokens(destinationChain, receiver, toToken, amountToSend);
         } else {
-            uint256 linkFee = calculateLinkFees(fromToken, toToken, minimumReceiveAmount, destinationChain);
-            // Amount of the 'fromToken' used to pay fees
-            uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
-
-            uint256 leftAmount = amount - amountIn;
-
-            // Amount of the 'toTokens' received from the swap ready to be sent through CCIP
+            uint256 amountLeft;
             uint256 amountOut;
-
-            // This conditional statement lets the protocol allow the sending of the same
-            // 'fromToken' and 'toToken'
-            if (fromToken != toToken) {
-                amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
-                if (amountOut < minimumReceiveAmount) {
-                    revert UnreachedMinimumAmount();
-                }
+            if (fromToken == address(linkToken)) {
+                // The user already provides LINK so swaping to get LINK is not needed
+                amountLeft = amount - linkFee;
+                amountOut = _swapExactInputSingle(fromToken, toToken, amountLeft, minimumReceiveAmount);
+            } else if (toToken == address(linkToken)) {
+                // The user expects LINK to be received so just one swap is needed
+                uint256 linkAmountOut = _swapExactInputSingle(fromToken, toToken, amount, minimumReceiveAmount);
+                amountOut = linkAmountOut - linkFee;
             } else {
-                amountOut = leftAmount;
+                // 'amountIn' is the amount of the 'fromToken' used to pay fees
+                uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
+
+                uint256 leftAmount = amount - amountIn;
+
+                if (fromToken != toToken) {
+                    amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
+                    if (amountOut < minimumReceiveAmount) {
+                        revert UnreachedMinimumAmount();
+                    }
+                } else {
+                    // If the 'fromToken' is equal to the 'toToken' then just the swap to get fees is needed
+                    amountOut = leftAmount;
+                }
             }
 
             _transferTokens(destinationChain, receiver, toToken, amountOut);
@@ -482,8 +486,6 @@ contract Switchlane is OwnerIsCreator {
 
         uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedOutputAmount, destinationChain);
 
-        // This conditional statement lets the protocol allow the sending of the same
-        // 'fromToken' and 'toToken'
         uint256 leftTokens;
 
         if (fromToken == address(linkToken) && toToken == address(linkToken)) {
@@ -494,14 +496,31 @@ contract Switchlane is OwnerIsCreator {
                 revert NotEnoughTokensToPayFees();
             }
         } else if (fromToken != toToken) {
-            uint256 amountIn = _swapExactOutputSingle(fromToken, toToken, expectedOutputAmount, amount);
+            if (fromToken == address(linkToken)) {
+                uint256 maximumSwapAmount = amount - linkFee;
+                uint256 amountIn = _swapExactOutputSingle(fromToken, toToken, expectedOutputAmount, maximumSwapAmount);
 
-            leftTokens = amount - amountIn;
+                leftTokens = amount - amountIn;
 
-            uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
+                if (leftTokens < linkFee) {
+                    revert NotEnoughTokensToPayFees();
+                }
+            } else if (toToken == address(linkToken)) {
+                uint256 amountOutMinimum = expectedOutputAmount + linkFee;
+                uint256 amountOut = _swapExactInputSingle(fromToken, toToken, amount, amountOutMinimum);
+                if (amountOut < amountOutMinimum) {
+                    revert NotEnoughTokensToPayFees();
+                }
+            } else {
+                uint256 amountIn = _swapExactOutputSingle(fromToken, toToken, expectedOutputAmount, amount);
 
-            if (amountOut < linkFee) {
-                revert NotEnoughTokensToPayFees();
+                leftTokens = amount - amountIn;
+
+                uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
+
+                if (amountOut < linkFee) {
+                    revert NotEnoughTokensToPayFees();
+                }
             }
         } else {
             uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
