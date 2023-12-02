@@ -55,11 +55,11 @@ To deploy the Switchlane contract to start interacting with it:
 $ make deploy
 
 # To deploy on Polygon
-$ make deploy --network polygon
+$ make deploy ARGS="--network polygon"
 
 # To deploy on Mumbai
-$ make deploy --network mumbai
+$ make deploy ARGS="--network mumbai"
 
 # To deploy on Mainnet
-$ make deploy --network mainnet
+$ make deploy ARGS="--network mainnet"
 ```
