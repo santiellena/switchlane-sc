@@ -9,7 +9,7 @@ FORK_TEST_PATH := "test/fork/Switchlane.t.sol"
 UNIT_TEST_PATH := "test/unit/Switchlane.t.sol"
 
 install :
-	forge install transmissions11/solmate --no-commit && forge install smartcontractkit/chainlink --no-commit && forge install OpenZeppelin/openzeppelin-contracts --no-commit && npm install
+	@forge install transmissions11/solmate --no-commit && forge install smartcontractkit/chainlink --no-commit && forge install OpenZeppelin/openzeppelin-contracts --no-commit && npm install
 
 anvil:; anvil
 
@@ -25,8 +25,23 @@ ifeq ($(findstring --fork mumbai,$(ARGS)), --fork mumbai)
 	NETWORK_FORK_ARGS := --fork-url $(MUMBAI_FORK_URL) 
 endif
 
+ifeq ($(findstring --network mainnet,$(ARGS)),--network mainnet)
+	NETWORK_ARGS := --rpc-url $(MAINNET_FORK_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
+
+ifeq ($(findstring --network polygon,$(ARGS)),--network polygon)
+	NETWORK_ARGS := --rpc-url $(POLYGON_FORK_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
+
+ifeq ($(findstring --network mumbai,$(ARGS)),--network mumbai)
+	NETWORK_ARGS := --rpc-url $(MUMBAI_FORK_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
+
 test:
-	forge test $(NETWORK_FORK_ARGS) --match-path $(FORK_TEST_PATH) -vvvvv
+	@forge test $(NETWORK_FORK_ARGS) --match-path $(FORK_TEST_PATH) -vvvvv
 
 unit:
-	forge test --match-path $(UNIT_TEST_PATH) -vvv
+	@forge test --match-path $(UNIT_TEST_PATH) -vvv
+
+deploy:
+	@forge script script/DeploySwitchlane.s.sol:DeploySwitchlane $(NETWORK_ARGS)
