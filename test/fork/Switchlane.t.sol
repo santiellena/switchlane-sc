@@ -38,6 +38,8 @@ contract SwitchlaneForkTest is Test {
 
     uint256 constant INITIAL_DEPOSIT = 1e18;
 
+    address anvilAccount = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+
     function setUp() public {
         // Brackets are used to avoid the "Stack Too Deep" issue
         // For more information: https://medium.com/aventus/stack-too-deep-error-in-solidity-5b8861891bae
@@ -49,13 +51,11 @@ contract SwitchlaneForkTest is Test {
         {
             (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, usdcTokenAddress) =
                 helperConfig.activeNetworkConfig();
-        }
-        {
+
             // Give some fromTokens (WETH) for USER
-            vm.startBroadcast(deployerKey);
+
             IWETH(payable(wethTokenAddress)).deposit{value: INITIAL_DEPOSIT}();
             IWETH(payable(wethTokenAddress)).transfer(USER, INITIAL_DEPOSIT);
-            vm.stopBroadcast();
         }
     }
 
