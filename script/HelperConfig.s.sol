@@ -21,6 +21,7 @@ contract HelperConfig is Script {
         address toTokenAddress;
     }
 
+    uint256 public constant SEPOLIA_CHAINID = 11155111;
     uint256 public constant MUMBAI_CHAINID = 80001;
     uint256 public constant POLYGON_CHAINID = 137;
     uint256 public constant MAINNET_CHAINID = 1;
@@ -37,6 +38,8 @@ contract HelperConfig is Script {
             activeNetworkConfig = getMumbaiConfig();
         } else if (block.chainid == POLYGON_CHAINID) {
             activeNetworkConfig = getPolygonConfig();
+        } else if (block.chainid == SEPOLIA_CHAINID) {
+            activeNetworkConfig = getSepoliaConfig();
         } else {
             activeNetworkConfig = getOrCreateAnvilConfig();
         }
@@ -90,6 +93,23 @@ contract HelperConfig is Script {
             deployerKey: vm.envUint("ANVIL_KEY"),
             wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
             toTokenAddress: 0x514910771AF9Ca656af840dff83E8264EcF986CA // LINK
+        });
+    }
+
+    function getSepoliaConfig() public view returns (NetworkConfig memory) {
+        Fees memory fees = Fees({
+            poolFee: DEFAULT_POOL_FEE,
+            linkMarginFee: DEFAULT_LINK_FEE,
+            linkPriceFeedAddress: 0xc59E3633BAAC79493d908e63626716e204A45EdF
+        });
+        return NetworkConfig({
+            routerAddress: 0xD0daae2231E9CB96b94C8512223533293C3693Bf,
+            linkAddress: 0x779877A7B0D9E8603169DdbD7836e478b4624789,
+            swapRouterAddress: 0xE592427A0AEce92De3Edee1F18E0157C05861564,
+            fees: fees,
+            deployerKey: vm.envUint("ANVIL_KEY"),
+            wethTokenAddress: 0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534,
+            toTokenAddress: 0x779877A7B0D9E8603169DdbD7836e478b4624789 // LINK
         });
     }
 
