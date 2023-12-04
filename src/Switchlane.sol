@@ -46,7 +46,7 @@ contract Switchlane is OwnerIsCreator {
     // Price feed returns a number with 8 decimals and the whole system works with 18
     int256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
-    uint256 private constant PERCENTAGE_PRECISION = 1e22;
+    uint256 private constant PERCENTAGE_PRECISION = 1e24;
 
     /**
      *  ERRORS SECTION
@@ -280,6 +280,10 @@ contract Switchlane is OwnerIsCreator {
         }
     }
 
+    function _calculateSwapFee(uint256 amount) internal view returns (uint256 swapCost) {
+        swapCost = (amount * uint256(poolFee) * PRECISION) / PERCENTAGE_PRECISION;
+    }
+
     /**
      *  PUBLIC FUNCTIONS SECTION
      */
@@ -345,10 +349,13 @@ contract Switchlane is OwnerIsCreator {
         onlyWhiteListedChain(destinationChain)
         returns (uint256 fees)
     {
-        uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedAmountToToken, destinationChain);
-        uint256 linkFeesInUsd = getTokenUsdValue(address(linkToken), linkFee);
-
-        uint256 fromTokenFees = (amountFromToken * uint256(poolFee) * PRECISION) / PERCENTAGE_PRECISION;
+        uint256 linkFeesInUsd;
+        {
+            uint256 linkFee = calculateLinkFees(fromToken, toToken, expectedAmountToToken, destinationChain);
+            uint256 linkFeePlusSwapCost = _calculateSwapFee(linkFee) + linkFee;
+            linkFeesInUsd = getTokenUsdValue(address(linkToken), linkFeePlusSwapCost);
+        }
+        uint256 fromTokenFees = _calculateSwapFee(amountFromToken);
 
         uint256 fromTokenFeesInUsd = getTokenUsdValue(fromToken, fromTokenFees);
 
