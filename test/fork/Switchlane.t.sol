@@ -31,6 +31,8 @@ contract SwitchlaneForkTest is Test {
     address toTokenAddress;
     address switchlaneOwner;
 
+    address wethPriceFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+
     // USER THAT HOLDS THE ERC20 TOKENS AND WANTS TO SEND THEM
     address public USER = makeAddr("USER");
 
@@ -74,6 +76,12 @@ contract SwitchlaneForkTest is Test {
         _;
     }
 
+    modifier addPriceFeedToToken(address token, address priceFeed) {
+        vm.prank(switchlaneOwner);
+        switchlane.addPriceFeedUsdAddressToToken(token, priceFeed);
+        _;
+    }
+
     function testBalance() public {
         uint256 balance = IWETH(payable(wethTokenAddress)).balanceOf(USER);
 
@@ -113,7 +121,26 @@ contract SwitchlaneForkTest is Test {
         uint256 linkFees =
             switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 1e18, ARBITRUM_DESTINATION_CHAIN);
 
-        console.log(linkFees);
+        console.log("LINK used on CCIP: ", linkFees);
         assert(linkFees > 0);
+    }
+
+    function testCalculateProtocolFees()
+        public
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistChain(ARBITRUM_DESTINATION_CHAIN)
+        addPriceFeedToToken(toTokenAddress, fees.linkPriceFeedAddress) // This is like this because I'm using LINK as toToken
+        addPriceFeedToToken(wethTokenAddress, wethPriceFeed)
+    {
+        uint256 AMOUNT_WETH_SENT = 1e18;
+        uint256 EXPECTED_TO_TOKEN_AMOUNT = 100e18;
+
+        vm.prank(USER);
+        uint256 feesInUsd = switchlane.calculateProtocolFees(
+            wethTokenAddress, toTokenAddress, AMOUNT_WETH_SENT, EXPECTED_TO_TOKEN_AMOUNT, ARBITRUM_DESTINATION_CHAIN
+        );
+
+        console.log("PROTOCOL FEES IN USD: ", feesInUsd);
+        assert(feesInUsd > 0);
     }
 }

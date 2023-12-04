@@ -355,7 +355,12 @@ contract Switchlane is OwnerIsCreator {
         fees = linkFeesInUsd + fromTokenFeesInUsd;
     }
 
-    function getTokenUsdValue(address token, uint256 amount) public view returns (uint256 amountInUsd) {
+    function getTokenUsdValue(address token, uint256 amount)
+        public
+        view
+        hasPriceFeedAddressAssociated(token)
+        returns (uint256 amountInUsd)
+    {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(tokenAddressToPriceFeedUsdAddress[token]);
 
         /**

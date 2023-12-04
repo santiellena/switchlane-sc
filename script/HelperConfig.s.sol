@@ -89,7 +89,7 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            toTokenAddress: 0xCA160D11087E03fd398d40f561cd4768825f4958 // NUON
+            toTokenAddress: 0x514910771AF9Ca656af840dff83E8264EcF986CA // LINK
         });
     }
 
