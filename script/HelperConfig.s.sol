@@ -18,7 +18,7 @@ contract HelperConfig is Script {
         Fees fees;
         uint256 deployerKey;
         address wethTokenAddress;
-        address usdcTokenAddress;
+        address toTokenAddress;
     }
 
     uint256 public constant MUMBAI_CHAINID = 80001;
@@ -55,7 +55,7 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("PRIVATE_KEY"),
             wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            usdcTokenAddress: 0x0FA8781a83E46826621b3BC094Ea2A0212e71B23
+            toTokenAddress: 0x0FA8781a83E46826621b3BC094Ea2A0212e71B23
         });
     }
 
@@ -72,7 +72,7 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             wethTokenAddress: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619,
-            usdcTokenAddress: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+            toTokenAddress: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
         });
     }
 
@@ -89,7 +89,7 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            usdcTokenAddress: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+            toTokenAddress: 0xCA160D11087E03fd398d40f561cd4768825f4958 // NUON
         });
     }
 
@@ -117,7 +117,7 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: deployer,
             wethTokenAddress: address(weth),
-            usdcTokenAddress: address(usdc)
+            toTokenAddress: address(usdc)
         });
     }
 }

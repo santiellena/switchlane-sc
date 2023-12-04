@@ -28,7 +28,7 @@ contract SwitchlaneForkTest is Test {
     address router;
     address swapRouter;
     address wethTokenAddress;
-    address usdcTokenAddress;
+    address toTokenAddress;
     address switchlaneOwner;
 
     // USER THAT HOLDS THE ERC20 TOKENS AND WANTS TO SEND THEM
@@ -38,7 +38,7 @@ contract SwitchlaneForkTest is Test {
     address public ENTRY_POINT = makeAddr("ENTRY_POINT");
 
     uint256 public constant INITIAL_DEPOSIT = 1e18;
-    uint64 public constant POLYGON_DESTINATION_CHAIN = 4051577828743386545;
+    uint64 public constant ARBITRUM_DESTINATION_CHAIN = 4949039107694359620;
 
     function setUp() public {
         // Brackets are used to avoid the "Stack Too Deep" issue
@@ -49,7 +49,7 @@ contract SwitchlaneForkTest is Test {
             (switchlane, helperConfig) = deployer.run();
         }
         {
-            (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, usdcTokenAddress) =
+            (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, toTokenAddress) =
                 helperConfig.activeNetworkConfig();
 
             switchlaneOwner = switchlane.owner();
@@ -102,5 +102,18 @@ contract SwitchlaneForkTest is Test {
         switchlane.withdrawToken(switchlaneOwner, wethTokenAddress);
 
         assertEq(IWETH(payable(wethTokenAddress)).balanceOf(switchlaneOwner), INITIAL_DEPOSIT);
+    }
+
+    function testCalculateLinkFees()
+        public
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistChain(ARBITRUM_DESTINATION_CHAIN)
+    {
+        vm.prank(switchlaneOwner);
+        uint256 linkFees =
+            switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 1e18, ARBITRUM_DESTINATION_CHAIN);
+
+        console.log(linkFees);
+        assert(linkFees > 0);
     }
 }

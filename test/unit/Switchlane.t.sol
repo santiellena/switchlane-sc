@@ -23,7 +23,7 @@ contract SwitchlaneTest is Test {
     address router;
     address swapRouter;
     address wethTokenAddress;
-    address usdcTokenAddress;
+    address toTokenAddress;
     address switchlaneOwner;
 
     // USER THAT HOLDS THE ERC20 TOKENS AND WANTS TO SEND THEM
@@ -48,7 +48,7 @@ contract SwitchlaneTest is Test {
             (switchlane, helperConfig) = deployer.run();
         }
         {
-            (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, usdcTokenAddress) =
+            (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, toTokenAddress) =
                 helperConfig.activeNetworkConfig();
 
             switchlaneOwner = switchlane.owner();
@@ -108,41 +108,41 @@ contract SwitchlaneTest is Test {
     function testCalculateLinkFeesRevertsIfAmountIsZero()
         public
         whitelistChain(POLYGON_DESTINATION_CHAIN)
-        whitelistSwapPair(wethTokenAddress, usdcTokenAddress)
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
-        switchlane.calculateLinkFees(wethTokenAddress, usdcTokenAddress, 0, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 0, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateLinkFeesRevertsIfNotWhitelistedSwapPair() public whitelistChain(POLYGON_DESTINATION_CHAIN) {
         vm.expectRevert(Switchlane.SwapPairNotWhiteListed.selector);
-        switchlane.calculateLinkFees(wethTokenAddress, usdcTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateLinkFeesRevertsIfDestinationChainIsNotWhitelisted()
         public
-        whitelistSwapPair(wethTokenAddress, usdcTokenAddress)
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.DestinationChainNotWhiteListed.selector);
-        switchlane.calculateLinkFees(wethTokenAddress, usdcTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfAmountFromTokenIsZero()
         public
         whitelistChain(POLYGON_DESTINATION_CHAIN)
-        whitelistSwapPair(wethTokenAddress, usdcTokenAddress)
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, usdcTokenAddress, 0, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 0, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfAmountToTokenIsZero()
         public
         whitelistChain(POLYGON_DESTINATION_CHAIN)
-        whitelistSwapPair(wethTokenAddress, usdcTokenAddress)
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, usdcTokenAddress, 100, 0, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 100, 0, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfNotWhitelistedSwapPair()
@@ -150,15 +150,15 @@ contract SwitchlaneTest is Test {
         whitelistChain(POLYGON_DESTINATION_CHAIN)
     {
         vm.expectRevert(Switchlane.SwapPairNotWhiteListed.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, usdcTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfDestinationChainIsNotWhitelisted()
         public
-        whitelistSwapPair(wethTokenAddress, usdcTokenAddress)
+        whitelistSwapPair(wethTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.DestinationChainNotWhiteListed.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, usdcTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testGetTokenUsdValue() public addPriceFeedToToken(wethTokenAddress, address(wethPriceFeed)) {
@@ -171,7 +171,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactInput(
-            address(0), address(0), wethTokenAddress, usdcTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
+            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
         );
     }
 
@@ -179,7 +179,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactInput(
-            address(0), address(0), wethTokenAddress, usdcTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
+            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
         );
     }
 
@@ -187,7 +187,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactOutput(
-            address(0), address(0), wethTokenAddress, usdcTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
+            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
         );
     }
 
@@ -195,7 +195,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactOutput(
-            address(0), address(0), wethTokenAddress, usdcTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
+            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
         );
     }
 
@@ -229,30 +229,30 @@ contract SwitchlaneTest is Test {
 
     function testAllowlistReceiveToken() public {
         vm.prank(switchlaneOwner);
-        switchlane.allowlistReceiveToken(usdcTokenAddress);
+        switchlane.allowlistReceiveToken(toTokenAddress);
 
-        assert(switchlane.whiteListedReceiveTokens(usdcTokenAddress));
+        assert(switchlane.whiteListedReceiveTokens(toTokenAddress));
     }
 
-    function testDenylistReceiveToken() public allowlistReceiveToken(usdcTokenAddress) {
+    function testDenylistReceiveToken() public allowlistReceiveToken(toTokenAddress) {
         vm.prank(switchlaneOwner);
-        switchlane.denylistReceiveToken(usdcTokenAddress);
+        switchlane.denylistReceiveToken(toTokenAddress);
 
-        assert(!switchlane.whiteListedReceiveTokens(usdcTokenAddress));
+        assert(!switchlane.whiteListedReceiveTokens(toTokenAddress));
     }
 
     function testWhitelistSwapPair() public {
         vm.prank(switchlaneOwner);
-        switchlane.whitelistSwapPair(wethTokenAddress, usdcTokenAddress);
+        switchlane.whitelistSwapPair(wethTokenAddress, toTokenAddress);
 
-        assert(switchlane.whiteListedSwapPair(wethTokenAddress, usdcTokenAddress));
+        assert(switchlane.whiteListedSwapPair(wethTokenAddress, toTokenAddress));
     }
 
-    function testDenylistSwapPair() public whitelistSwapPair(wethTokenAddress, usdcTokenAddress) {
+    function testDenylistSwapPair() public whitelistSwapPair(wethTokenAddress, toTokenAddress) {
         vm.prank(switchlaneOwner);
-        switchlane.denylistSwapPair(wethTokenAddress, usdcTokenAddress);
+        switchlane.denylistSwapPair(wethTokenAddress, toTokenAddress);
 
-        assert(!switchlane.whiteListedSwapPair(wethTokenAddress, usdcTokenAddress));
+        assert(!switchlane.whiteListedSwapPair(wethTokenAddress, toTokenAddress));
     }
 
     function testChangePoolFee() public {
