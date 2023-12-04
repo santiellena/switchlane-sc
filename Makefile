@@ -38,7 +38,10 @@ ifeq ($(findstring --network mumbai,$(ARGS)),--network mumbai)
 endif
 
 test:
-	@forge test $(NETWORK_FORK_ARGS) --match-path $(FORK_TEST_PATH) -vvvvv
+	@forge test $(NETWORK_FORK_ARGS) --match-path $(FORK_TEST_PATH) -vvv
+
+testMatch:
+	@forge test $(NETWORK_FORK_ARGS) --match-test $(ARGS) -vvvvv
 
 unit:
 	@forge test --match-path $(UNIT_TEST_PATH) -vvv
