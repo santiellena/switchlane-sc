@@ -29,6 +29,7 @@ contract SwitchlaneForkTest is Test {
     address swapRouter;
     address wethTokenAddress;
     address usdcTokenAddress;
+    address switchlaneOwner;
 
     // USER THAT HOLDS THE ERC20 TOKENS AND WANTS TO SEND THEM
     address public USER = makeAddr("USER");
@@ -36,9 +37,8 @@ contract SwitchlaneForkTest is Test {
     // THE ENTRY POINT THAT EXECUTES THE USER OPERATIONS
     address public ENTRY_POINT = makeAddr("ENTRY_POINT");
 
-    uint256 constant INITIAL_DEPOSIT = 1e18;
-
-    address anvilAccount = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    uint256 public constant INITIAL_DEPOSIT = 1e18;
+    uint64 public constant POLYGON_DESTINATION_CHAIN = 4051577828743386545;
 
     function setUp() public {
         // Brackets are used to avoid the "Stack Too Deep" issue
@@ -52,16 +52,55 @@ contract SwitchlaneForkTest is Test {
             (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, usdcTokenAddress) =
                 helperConfig.activeNetworkConfig();
 
-            // Give some fromTokens (WETH) for USER
+            switchlaneOwner = switchlane.owner();
 
+            // Give some fromTokens (WETH) for USER
             IWETH(payable(wethTokenAddress)).deposit{value: INITIAL_DEPOSIT}();
             IWETH(payable(wethTokenAddress)).transfer(USER, INITIAL_DEPOSIT);
         }
+    }
+
+    // MODIFIERS SECTION
+
+    modifier whitelistSwapPair(address fromToken, address toToken) {
+        vm.prank(switchlaneOwner);
+        switchlane.whitelistSwapPair(fromToken, toToken);
+        _;
+    }
+
+    modifier whitelistChain(uint64 destinationChain) {
+        vm.prank(switchlaneOwner);
+        switchlane.whitelistChain(destinationChain);
+        _;
     }
 
     function testBalance() public {
         uint256 balance = IWETH(payable(wethTokenAddress)).balanceOf(USER);
 
         assertEq(balance, INITIAL_DEPOSIT);
+    }
+
+    function testWithdrawTokenRevertsIfNotCalledByOwner() public {
+        vm.prank(USER);
+        vm.expectRevert("Only callable by owner");
+        switchlane.withdrawToken(USER, wethTokenAddress);
+    }
+
+    function testWithdrawTokenRevertsIfBalanceOfTokenIsZero() public {
+        vm.prank(switchlaneOwner);
+        vm.expectRevert(Switchlane.NothingToWithdraw.selector);
+        switchlane.withdrawToken(USER, wethTokenAddress);
+    }
+
+    function testWithdrawToken() public {
+        vm.prank(USER);
+        IWETH(payable(wethTokenAddress)).transfer(address(switchlane), INITIAL_DEPOSIT);
+
+        assertEq(IWETH(payable(wethTokenAddress)).balanceOf(USER), 0);
+
+        vm.prank(switchlaneOwner);
+        switchlane.withdrawToken(switchlaneOwner, wethTokenAddress);
+
+        assertEq(IWETH(payable(wethTokenAddress)).balanceOf(switchlaneOwner), INITIAL_DEPOSIT);
     }
 }
