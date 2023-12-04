@@ -40,6 +40,12 @@ To run fork tests, located at _test/fork/Switchlane.t.sol_:
 $ make test
 ```
 
+To run a specific fork test, located at _test/fork/Switchlane.t.sol_:
+
+```bash
+$ make testMatch ARGS="testName"
+```
+
 To run unit tests, located at _test/unit/Switchlane.t.sol_:
 
 ```bash
