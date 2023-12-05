@@ -57,6 +57,7 @@ unit:
 deploy:
 	@forge script script/DeploySwitchlane.s.sol:DeploySwitchlane $(NETWORK_ARGS)
 
-coverage: # To use this you need to have lcov installed ($ sudo apt install lcov)
+coverage: # To use this you need to have lcov and genhtml installed ($ sudo apt install lcov; sudo apt install genhtml)
 	@forge coverage --report lcov
 	@lcov --remove lcov.info  -o lcov.info 'test/*' 'script/*'
+	@genhtml -o report --branch-coverage ./lcov.info
