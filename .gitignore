@@ -15,6 +15,3 @@ docs/
 
 # NPM packages
 /node_modules/
-
-# Forge coverage report
-lcov.info
