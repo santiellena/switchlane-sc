@@ -19,6 +19,7 @@ contract HelperConfig is Script {
         uint256 deployerKey;
         address fromTokenAddress;
         address toTokenAddress;
+        bool test;
     }
 
     uint256 public constant SEPOLIA_CHAINID = 11155111;
@@ -58,7 +59,8 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             fromTokenAddress: 0x02C5549fC884Ef24553202AbEdB9876eCfB171aD, // SLN test token
-            toTokenAddress: 0xf1E3A5842EeEF51F2967b3F05D45DD4f4205FF40 // CCIP-BnM
+            toTokenAddress: 0xf1E3A5842EeEF51F2967b3F05D45DD4f4205FF40, // CCIP-BnM
+            test: true
         });
     }
 
@@ -75,7 +77,8 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             fromTokenAddress: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619,
-            toTokenAddress: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+            toTokenAddress: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359,
+            test: true
         });
     }
 
@@ -92,7 +95,8 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             fromTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            toTokenAddress: 0x514910771AF9Ca656af840dff83E8264EcF986CA // LINK
+            toTokenAddress: 0x514910771AF9Ca656af840dff83E8264EcF986CA, // LINK
+            test: true
         });
     }
 
@@ -109,7 +113,8 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
             fromTokenAddress: 0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534,
-            toTokenAddress: 0x779877A7B0D9E8603169DdbD7836e478b4624789 // LINK
+            toTokenAddress: 0x779877A7B0D9E8603169DdbD7836e478b4624789, // LINK
+            test: true
         });
     }
 
@@ -137,7 +142,8 @@ contract HelperConfig is Script {
             fees: fees,
             deployerKey: deployer,
             fromTokenAddress: address(weth),
-            toTokenAddress: address(usdc)
+            toTokenAddress: address(usdc),
+            test: true
         });
     }
 }

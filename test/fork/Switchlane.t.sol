@@ -8,6 +8,7 @@ import {LinkToken} from "../mock/LinkToken.sol";
 import {DeploySwitchlane} from "../../script/DeploySwitchlane.s.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {SwitchlaneExposed} from "../SwitchlaneExposed.sol";
 
 interface IWETH is IERC20 {
     receive() external payable;
@@ -20,11 +21,13 @@ interface ISLN is IERC20 {
 }
 
 // WETH ----> USDC
+
 contract SwitchlaneForkTest is Test {
     HelperConfig helperConfig;
     DeploySwitchlane deployer;
     uint256 deployerKey;
     Switchlane switchlane;
+    SwitchlaneExposed switchlaneExposed;
     address linkAddress;
     // The Fees struct was made to avoid the "Stack Too Deep" issue
     // Fees { uint256 linkMarginFee, uint24 poolFee, address linkPriceFeedAddress }
@@ -68,10 +71,10 @@ contract SwitchlaneForkTest is Test {
         {
             deployer = new DeploySwitchlane();
 
-            (switchlane, helperConfig) = deployer.run();
+            (switchlane, helperConfig, switchlaneExposed) = deployer.run();
         }
         {
-            (router, linkAddress, swapRouter, fees, deployerKey, fromTokenAddress, toTokenAddress) =
+            (router, linkAddress, swapRouter, fees, deployerKey, fromTokenAddress, toTokenAddress,) =
                 helperConfig.activeNetworkConfig();
 
             switchlaneOwner = switchlane.owner();

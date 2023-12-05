@@ -9,6 +9,8 @@ import {DeploySwitchlane} from "../../script/DeploySwitchlane.s.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {MockV3Aggregator} from "../mock/MockV3Aggregator.sol";
+import {SwitchlaneExposed} from "../SwitchlaneExposed.sol";
+import {ERC20Mock} from "../mock/ERC20Mock.sol";
 
 contract SwitchlaneTest is Test {
     HelperConfig helperConfig;
@@ -16,6 +18,7 @@ contract SwitchlaneTest is Test {
     MockV3Aggregator wethPriceFeed;
     uint256 deployerKey;
     Switchlane switchlane;
+    SwitchlaneExposed switchlaneExposed;
     address linkAddress;
     // The Fees struct was made to avoid the "Stack Too Deep" issue
     // Fees { uint256 linkMarginFee, uint24 poolFee, address linkPriceFeedAddress }
@@ -45,10 +48,10 @@ contract SwitchlaneTest is Test {
         {
             deployer = new DeploySwitchlane();
 
-            (switchlane, helperConfig) = deployer.run();
+            (switchlane, helperConfig, switchlaneExposed) = deployer.run();
         }
         {
-            (router, linkAddress, swapRouter, fees, deployerKey, fromTokenAddress, toTokenAddress) =
+            (router, linkAddress, swapRouter, fees, deployerKey, fromTokenAddress, toTokenAddress,) =
                 helperConfig.activeNetworkConfig();
 
             switchlaneOwner = switchlane.owner();
@@ -60,6 +63,12 @@ contract SwitchlaneTest is Test {
     }
 
     // MODIFIERS SECTION
+
+    modifier whitelistReceiveToken(address token) {
+        vm.prank(switchlaneOwner);
+        switchlaneExposed.allowlistReceiveToken(token);
+        _;
+    }
 
     modifier whitelistSwapPair(address fromToken, address toToken) {
         vm.prank(switchlaneOwner);
@@ -88,6 +97,11 @@ contract SwitchlaneTest is Test {
     modifier allowlistReceiveToken(address token) {
         vm.prank(switchlaneOwner);
         switchlane.allowlistReceiveToken(token);
+        _;
+    }
+
+    modifier mintToken(address token, address account, uint256 amount) {
+        ERC20Mock(token).mint(account, amount);
         _;
     }
 
@@ -310,5 +324,37 @@ contract SwitchlaneTest is Test {
         address expectedSwapRouterAddress = swapRouter;
 
         assertEq(actualSwapRouterAddress, expectedSwapRouterAddress);
+    }
+
+    function testCalculateSwapFee() public {
+        uint256 amount = 1000;
+
+        uint256 expectedSwapFee = 3;
+
+        uint256 acutalSwapFee = switchlaneExposed.calculateSwapFee(amount);
+
+        assertEq(acutalSwapFee, expectedSwapFee);
+    }
+
+    function testReceiveTokens(uint256 amount)
+        public
+        mintToken(fromTokenAddress, USER, amount)
+        whitelistReceiveToken(fromTokenAddress)
+    {   
+        if(amount > 0){
+        vm.prank(USER);
+        IERC20(fromTokenAddress).approve(address(switchlaneExposed), amount);
+
+        switchlaneExposed.receiveTokens(USER, fromTokenAddress, amount);
+
+        uint256 expectedBalanceOfUser = 0;
+        uint256 actualBalanceOfUser = IERC20(fromTokenAddress).balanceOf(USER);
+
+        uint256 expectedBalanceOfSwitchlane = amount;
+        uint256 actualBalanceOfSwitchlane = IERC20(fromTokenAddress).balanceOf(address(switchlaneExposed));
+
+        assertEq(expectedBalanceOfUser, actualBalanceOfUser);
+        assertEq(expectedBalanceOfSwitchlane, actualBalanceOfSwitchlane);
+        }
     }
 }
