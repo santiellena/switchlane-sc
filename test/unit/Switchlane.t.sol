@@ -22,7 +22,7 @@ contract SwitchlaneTest is Test {
     HelperConfig.Fees fees;
     address router;
     address swapRouter;
-    address wethTokenAddress;
+    address fromTokenAddress;
     address toTokenAddress;
     address switchlaneOwner;
 
@@ -48,7 +48,7 @@ contract SwitchlaneTest is Test {
             (switchlane, helperConfig) = deployer.run();
         }
         {
-            (router, linkAddress, swapRouter, fees, deployerKey, wethTokenAddress, toTokenAddress) =
+            (router, linkAddress, swapRouter, fees, deployerKey, fromTokenAddress, toTokenAddress) =
                 helperConfig.activeNetworkConfig();
 
             switchlaneOwner = switchlane.owner();
@@ -96,53 +96,53 @@ contract SwitchlaneTest is Test {
     function testWithdrawTokenRevertsIfNothingToWithdraw() public {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.NothingToWithdraw.selector);
-        switchlane.withdrawToken(USER, wethTokenAddress);
+        switchlane.withdrawToken(USER, fromTokenAddress);
     }
 
     function testWithdrawTokenRevertsIfNotOwner() public {
         vm.prank(USER);
         vm.expectRevert("Only callable by owner");
-        switchlane.withdrawToken(USER, wethTokenAddress);
+        switchlane.withdrawToken(USER, fromTokenAddress);
     }
 
     function testCalculateLinkFeesRevertsIfAmountIsZero()
         public
         whitelistChain(POLYGON_DESTINATION_CHAIN)
-        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
-        switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 0, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateLinkFees(fromTokenAddress, toTokenAddress, 0, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateLinkFeesRevertsIfNotWhitelistedSwapPair() public whitelistChain(POLYGON_DESTINATION_CHAIN) {
         vm.expectRevert(Switchlane.SwapPairNotWhiteListed.selector);
-        switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateLinkFees(fromTokenAddress, toTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateLinkFeesRevertsIfDestinationChainIsNotWhitelisted()
         public
-        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.DestinationChainNotWhiteListed.selector);
-        switchlane.calculateLinkFees(wethTokenAddress, toTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateLinkFees(fromTokenAddress, toTokenAddress, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfAmountFromTokenIsZero()
         public
         whitelistChain(POLYGON_DESTINATION_CHAIN)
-        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 0, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(fromTokenAddress, toTokenAddress, 0, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfAmountToTokenIsZero()
         public
         whitelistChain(POLYGON_DESTINATION_CHAIN)
-        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 100, 0, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(fromTokenAddress, toTokenAddress, 100, 0, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfNotWhitelistedSwapPair()
@@ -150,19 +150,19 @@ contract SwitchlaneTest is Test {
         whitelistChain(POLYGON_DESTINATION_CHAIN)
     {
         vm.expectRevert(Switchlane.SwapPairNotWhiteListed.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(fromTokenAddress, toTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
     }
 
     function testCalculateProtocolFeesRevertsIfDestinationChainIsNotWhitelisted()
         public
-        whitelistSwapPair(wethTokenAddress, toTokenAddress)
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
     {
         vm.expectRevert(Switchlane.DestinationChainNotWhiteListed.selector);
-        switchlane.calculateProtocolFees(wethTokenAddress, toTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
+        switchlane.calculateProtocolFees(fromTokenAddress, toTokenAddress, 100, 100, POLYGON_DESTINATION_CHAIN);
     }
 
-    function testGetTokenUsdValue() public addPriceFeedToToken(wethTokenAddress, address(wethPriceFeed)) {
-        uint256 actualPriceWethInUsd = switchlane.getTokenUsdValue(wethTokenAddress, 1e18);
+    function testGetTokenUsdValue() public addPriceFeedToToken(fromTokenAddress, address(wethPriceFeed)) {
+        uint256 actualPriceWethInUsd = switchlane.getTokenUsdValue(fromTokenAddress, 1e18);
         uint256 expectedPriceWethInUsd = 2000e18;
         assertEq(actualPriceWethInUsd, expectedPriceWethInUsd);
     }
@@ -171,7 +171,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactInput(
-            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
+            address(0), address(0), fromTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
         );
     }
 
@@ -179,7 +179,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactInput(
-            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
+            address(0), address(0), fromTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
         );
     }
 
@@ -187,7 +187,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactOutput(
-            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
+            address(0), address(0), fromTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 0, 100
         );
     }
 
@@ -195,7 +195,7 @@ contract SwitchlaneTest is Test {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.MustBeMoreThanZero.selector);
         switchlane.switchlaneExactOutput(
-            address(0), address(0), wethTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
+            address(0), address(0), fromTokenAddress, toTokenAddress, POLYGON_DESTINATION_CHAIN, 100, 0
         );
     }
 
@@ -215,16 +215,16 @@ contract SwitchlaneTest is Test {
 
     function testWhitelistTokenOnChain() public {
         vm.prank(switchlaneOwner);
-        switchlane.whitelistTokenOnChain(POLYGON_DESTINATION_CHAIN, wethTokenAddress);
+        switchlane.whitelistTokenOnChain(POLYGON_DESTINATION_CHAIN, fromTokenAddress);
 
-        assert(switchlane.whiteListedTokensOnChains(POLYGON_DESTINATION_CHAIN, wethTokenAddress));
+        assert(switchlane.whiteListedTokensOnChains(POLYGON_DESTINATION_CHAIN, fromTokenAddress));
     }
 
-    function testDenylistTokenOnChain() public whitelistTokenOnChain(POLYGON_DESTINATION_CHAIN, wethTokenAddress) {
+    function testDenylistTokenOnChain() public whitelistTokenOnChain(POLYGON_DESTINATION_CHAIN, fromTokenAddress) {
         vm.prank(switchlaneOwner);
-        switchlane.denylistTokenOnChain(POLYGON_DESTINATION_CHAIN, wethTokenAddress);
+        switchlane.denylistTokenOnChain(POLYGON_DESTINATION_CHAIN, fromTokenAddress);
 
-        assert(!switchlane.whiteListedTokensOnChains(POLYGON_DESTINATION_CHAIN, wethTokenAddress));
+        assert(!switchlane.whiteListedTokensOnChains(POLYGON_DESTINATION_CHAIN, fromTokenAddress));
     }
 
     function testAllowlistReceiveToken() public {
@@ -243,16 +243,16 @@ contract SwitchlaneTest is Test {
 
     function testWhitelistSwapPair() public {
         vm.prank(switchlaneOwner);
-        switchlane.whitelistSwapPair(wethTokenAddress, toTokenAddress);
+        switchlane.whitelistSwapPair(fromTokenAddress, toTokenAddress);
 
-        assert(switchlane.whiteListedSwapPair(wethTokenAddress, toTokenAddress));
+        assert(switchlane.whiteListedSwapPair(fromTokenAddress, toTokenAddress));
     }
 
-    function testDenylistSwapPair() public whitelistSwapPair(wethTokenAddress, toTokenAddress) {
+    function testDenylistSwapPair() public whitelistSwapPair(fromTokenAddress, toTokenAddress) {
         vm.prank(switchlaneOwner);
-        switchlane.denylistSwapPair(wethTokenAddress, toTokenAddress);
+        switchlane.denylistSwapPair(fromTokenAddress, toTokenAddress);
 
-        assert(!switchlane.whiteListedSwapPair(wethTokenAddress, toTokenAddress));
+        assert(!switchlane.whiteListedSwapPair(fromTokenAddress, toTokenAddress));
     }
 
     function testChangePoolFee() public {
@@ -271,8 +271,8 @@ contract SwitchlaneTest is Test {
     function testAddPriceFeedUsdAddressToToken() public {
         vm.startPrank(switchlaneOwner);
 
-        switchlane.addPriceFeedUsdAddressToToken(wethTokenAddress, address(wethPriceFeed));
-        address actualPriceFeedAddress = switchlane.getTokenPriceFeedAddress(wethTokenAddress);
+        switchlane.addPriceFeedUsdAddressToToken(fromTokenAddress, address(wethPriceFeed));
+        address actualPriceFeedAddress = switchlane.getTokenPriceFeedAddress(fromTokenAddress);
         vm.stopPrank();
 
         assertEq(address(wethPriceFeed), actualPriceFeedAddress);
@@ -280,12 +280,12 @@ contract SwitchlaneTest is Test {
 
     function testRemovePriceFeedUsdAddressToToken()
         public
-        addPriceFeedToToken(wethTokenAddress, address(wethPriceFeed))
+        addPriceFeedToToken(fromTokenAddress, address(wethPriceFeed))
     {
         vm.startPrank(switchlaneOwner);
 
-        switchlane.removePriceFeedUsdAddressToToken(wethTokenAddress);
-        address actualPriceFeedAddress = switchlane.getTokenPriceFeedAddress(wethTokenAddress);
+        switchlane.removePriceFeedUsdAddressToToken(fromTokenAddress);
+        address actualPriceFeedAddress = switchlane.getTokenPriceFeedAddress(fromTokenAddress);
         vm.stopPrank();
 
         assertEq(address(0), actualPriceFeedAddress);

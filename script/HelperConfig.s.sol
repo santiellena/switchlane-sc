@@ -17,7 +17,7 @@ contract HelperConfig is Script {
         address swapRouterAddress;
         Fees fees;
         uint256 deployerKey;
-        address wethTokenAddress;
+        address fromTokenAddress;
         address toTokenAddress;
     }
 
@@ -56,9 +56,9 @@ contract HelperConfig is Script {
             linkAddress: 0x326C977E6efc84E512bB9C30f76E30c160eD06FB,
             swapRouterAddress: 0xE592427A0AEce92De3Edee1F18E0157C05861564,
             fees: fees,
-            deployerKey: vm.envUint("PRIVATE_KEY"),
-            wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            toTokenAddress: 0x0FA8781a83E46826621b3BC094Ea2A0212e71B23
+            deployerKey: vm.envUint("ANVIL_KEY"),
+            fromTokenAddress: 0x02C5549fC884Ef24553202AbEdB9876eCfB171aD, // SLN test token
+            toTokenAddress: 0xf1E3A5842EeEF51F2967b3F05D45DD4f4205FF40 // CCIP-BnM
         });
     }
 
@@ -74,7 +74,7 @@ contract HelperConfig is Script {
             swapRouterAddress: 0xE592427A0AEce92De3Edee1F18E0157C05861564,
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
-            wethTokenAddress: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619,
+            fromTokenAddress: 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619,
             toTokenAddress: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
         });
     }
@@ -91,7 +91,7 @@ contract HelperConfig is Script {
             swapRouterAddress: 0xE592427A0AEce92De3Edee1F18E0157C05861564,
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
-            wethTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+            fromTokenAddress: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
             toTokenAddress: 0x514910771AF9Ca656af840dff83E8264EcF986CA // LINK
         });
     }
@@ -108,7 +108,7 @@ contract HelperConfig is Script {
             swapRouterAddress: 0xE592427A0AEce92De3Edee1F18E0157C05861564,
             fees: fees,
             deployerKey: vm.envUint("ANVIL_KEY"),
-            wethTokenAddress: 0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534,
+            fromTokenAddress: 0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534,
             toTokenAddress: 0x779877A7B0D9E8603169DdbD7836e478b4624789 // LINK
         });
     }
@@ -136,7 +136,7 @@ contract HelperConfig is Script {
             swapRouterAddress: address(4),
             fees: fees,
             deployerKey: deployer,
-            wethTokenAddress: address(weth),
+            fromTokenAddress: address(weth),
             toTokenAddress: address(usdc)
         });
     }

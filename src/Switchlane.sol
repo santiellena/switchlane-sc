@@ -174,7 +174,6 @@ contract Switchlane is OwnerIsCreator {
         internal
         onlyWhiteListedChain(_destinationChainSelector)
         moreThanZero(_amount)
-        onlyOwner
         returns (bytes32 messageId)
     {
         Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
@@ -199,13 +198,22 @@ contract Switchlane is OwnerIsCreator {
 
         uint256 balanceOfContract = linkToken.balanceOf(address(this));
 
-        if (fees > balanceOfContract) {
-            revert NotEnoughLinkBalance();
+        if (_token == address(linkToken)) {
+            uint256 totalLinkAmount = fees + _amount;
+            if (totalLinkAmount > balanceOfContract) {
+                revert NotEnoughLinkBalance();
+            }
+
+            IERC20(_token).approve(address(router), totalLinkAmount);
+        } else {
+            if (fees > balanceOfContract) {
+                revert NotEnoughLinkBalance();
+            }
+
+            linkToken.approve(address(router), fees);
+
+            IERC20(_token).approve(address(router), _amount);
         }
-
-        linkToken.approve(address(router), fees);
-
-        IERC20(_token).approve(address(router), _amount);
 
         messageId = router.ccipSend(_destinationChainSelector, message);
 
@@ -236,7 +244,7 @@ contract Switchlane is OwnerIsCreator {
         moreThanZero(amountOutMinimum)
         returns (uint256 amountOut)
     {
-        linkToken.approve(address(swapRouter), amountIn);
+        IERC20(fromToken).approve(address(swapRouter), amountIn);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: fromToken,
@@ -256,10 +264,9 @@ contract Switchlane is OwnerIsCreator {
         internal
         onlyWhiteListedSwapPair(fromToken, toToken)
         moreThanZero(amountOut)
-        moreThanZero(amountInMaximum)
         returns (uint256 amountIn)
     {
-        linkToken.approve(address(swapRouter), amountInMaximum);
+        IERC20(fromToken).approve(address(swapRouter), amountInMaximum);
 
         ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams({
             tokenIn: fromToken,
@@ -276,7 +283,6 @@ contract Switchlane is OwnerIsCreator {
 
         if (amountIn < amountInMaximum) {
             linkToken.approve(address(swapRouter), 0);
-            linkToken.transfer(address(this), amountInMaximum - amountIn);
         }
     }
 
@@ -407,7 +413,7 @@ contract Switchlane is OwnerIsCreator {
         uint64 destinationChain,
         uint256 amount,
         uint256 minimumReceiveAmount
-    ) external onlyOwner moreThanZero(amount) moreThanZero(minimumReceiveAmount) {
+    ) external moreThanZero(amount) moreThanZero(minimumReceiveAmount) {
         /**
          * Steps:
          *      1)  Collect/Receive ERC20 tokens
@@ -443,12 +449,12 @@ contract Switchlane is OwnerIsCreator {
                 amountOut = linkAmountOut - linkFee;
             } else {
                 // 'amountIn' is the amount of the 'fromToken' used to pay fees
-                uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, 0);
+                uint256 amountIn = _swapExactOutputSingle(fromToken, address(linkToken), linkFee, amount);
 
                 uint256 leftAmount = amount - amountIn;
 
                 if (fromToken != toToken) {
-                    amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, 0);
+                    amountOut = _swapExactInputSingle(fromToken, toToken, leftAmount, minimumReceiveAmount);
                     if (amountOut < minimumReceiveAmount) {
                         revert UnreachedMinimumAmount();
                     }
@@ -482,7 +488,7 @@ contract Switchlane is OwnerIsCreator {
         uint64 destinationChain,
         uint256 expectedOutputAmount,
         uint256 amount
-    ) external onlyOwner moreThanZero(amount) moreThanZero(expectedOutputAmount) {
+    ) external moreThanZero(amount) moreThanZero(expectedOutputAmount) {
         /**
          * Steps:
          *      1)  Collect/Receive ERC20 tokens
@@ -528,7 +534,7 @@ contract Switchlane is OwnerIsCreator {
 
                 leftTokens = amount - amountIn;
 
-                uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, 0);
+                uint256 amountOut = _swapExactInputSingle(fromToken, address(linkToken), leftTokens, linkFee);
 
                 if (amountOut < linkFee) {
                     revert NotEnoughTokensToPayFees();
