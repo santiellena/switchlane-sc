@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import {Switchlane} from "../src/Switchlane.sol";
 
 // THIS CONTRACT IS TO EXPOSE INTERNAL FUNCTIONS SO THEY CAN BE TESTED
+// https://book.getfoundry.sh/tutorials/best-practices?highlight=internal#test-harnesses
 contract SwitchlaneExposed is Switchlane {
     constructor(
         address _router,
