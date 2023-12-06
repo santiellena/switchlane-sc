@@ -10,7 +10,11 @@ contract MockRouter {
         FEE = fee;
     }
 
-    function getFee(uint64 destinationChain, Client.EVM2AnyMessage memory message) external view returns (uint256) {
+    function getFee(uint64, /*destinationChain*/ Client.EVM2AnyMessage memory /*message*/ )
+        external
+        view
+        returns (uint256)
+    {
         return FEE;
     }
 }
