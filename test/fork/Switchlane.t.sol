@@ -77,7 +77,7 @@ contract SwitchlaneForkTest is Test {
             (router, linkAddress, swapRouter, fees, deployerKey, fromTokenAddress, toTokenAddress,) =
                 helperConfig.activeNetworkConfig();
 
-            switchlaneOwner = switchlane.owner();
+            switchlaneOwner = switchlaneExposed.owner();
 
             if (block.chainid == MUMBAI_CHAINID) {
                 ISLN(fromTokenAddress).mint(INITIAL_DEPOSIT);
@@ -94,25 +94,25 @@ contract SwitchlaneForkTest is Test {
 
     modifier whitelistSwapPair(address fromToken, address toToken) {
         vm.prank(switchlaneOwner);
-        switchlane.whitelistSwapPair(fromToken, toToken);
+        switchlaneExposed.whitelistSwapPair(fromToken, toToken);
         _;
     }
 
     modifier whitelistChain(uint64 destinationChain) {
         vm.prank(switchlaneOwner);
-        switchlane.whitelistChain(destinationChain);
+        switchlaneExposed.whitelistChain(destinationChain);
         _;
     }
 
     modifier addPriceFeedToToken(address token, address priceFeed) {
         vm.prank(switchlaneOwner);
-        switchlane.addPriceFeedUsdAddressToToken(token, priceFeed);
+        switchlaneExposed.addPriceFeedUsdAddressToToken(token, priceFeed);
         _;
     }
 
     modifier whitelistReceiveToken(address token) {
         vm.prank(switchlaneOwner);
-        switchlane.allowlistReceiveToken(token);
+        switchlaneExposed.allowlistReceiveToken(token);
         _;
     }
 
@@ -127,23 +127,23 @@ contract SwitchlaneForkTest is Test {
     function testWithdrawTokenRevertsIfNotCalledByOwner() public {
         vm.prank(USER);
         vm.expectRevert("Only callable by owner");
-        switchlane.withdrawToken(USER, fromTokenAddress);
+        switchlaneExposed.withdrawToken(USER, fromTokenAddress);
     }
 
     function testWithdrawTokenRevertsIfBalanceOfTokenIsZero() public {
         vm.prank(switchlaneOwner);
         vm.expectRevert(Switchlane.NothingToWithdraw.selector);
-        switchlane.withdrawToken(USER, fromTokenAddress);
+        switchlaneExposed.withdrawToken(USER, fromTokenAddress);
     }
 
     function testWithdrawToken() public {
         vm.prank(USER);
-        IWETH(payable(fromTokenAddress)).transfer(address(switchlane), INITIAL_DEPOSIT);
+        IWETH(payable(fromTokenAddress)).transfer(address(switchlaneExposed), INITIAL_DEPOSIT);
 
         assertEq(IWETH(payable(fromTokenAddress)).balanceOf(USER), 0);
 
         vm.prank(switchlaneOwner);
-        switchlane.withdrawToken(switchlaneOwner, fromTokenAddress);
+        switchlaneExposed.withdrawToken(switchlaneOwner, fromTokenAddress);
 
         assertEq(IWETH(payable(fromTokenAddress)).balanceOf(switchlaneOwner), INITIAL_DEPOSIT);
     }
@@ -155,7 +155,7 @@ contract SwitchlaneForkTest is Test {
     {
         vm.prank(switchlaneOwner);
         uint256 linkFees =
-            switchlane.calculateLinkFees(fromTokenAddress, toTokenAddress, 1e18, ARBITRUM_DESTINATION_CHAIN);
+            switchlaneExposed.calculateLinkFees(fromTokenAddress, toTokenAddress, 1e18, ARBITRUM_DESTINATION_CHAIN);
 
         console.log("LINK used on CCIP: ", linkFees);
         assert(linkFees > 0);
@@ -173,7 +173,7 @@ contract SwitchlaneForkTest is Test {
         uint256 EXPECTED_TO_TOKEN_AMOUNT = 100e18;
 
         vm.prank(USER);
-        uint256 feesInUsd = switchlane.calculateProtocolFees(
+        uint256 feesInUsd = switchlaneExposed.calculateProtocolFees(
             fromTokenAddress, toTokenAddress, AMOUNT_WETH_SENT, EXPECTED_TO_TOKEN_AMOUNT, ARBITRUM_DESTINATION_CHAIN
         );
 
@@ -197,12 +197,12 @@ contract SwitchlaneForkTest is Test {
         vm.startPrank(USER);
 
         if (block.chainid == MUMBAI_CHAINID) {
-            ISLN(fromTokenAddress).approve(address(switchlane), INITIAL_DEPOSIT);
+            ISLN(fromTokenAddress).approve(address(switchlaneExposed), INITIAL_DEPOSIT);
         } else {
-            IWETH(payable(fromTokenAddress)).approve(address(switchlane), INITIAL_DEPOSIT);
+            IWETH(payable(fromTokenAddress)).approve(address(switchlaneExposed), INITIAL_DEPOSIT);
         }
 
-        switchlane.switchlaneExactInput(
+        switchlaneExposed.switchlaneExactInput(
             USER,
             USER,
             fromTokenAddress,
@@ -232,12 +232,12 @@ contract SwitchlaneForkTest is Test {
         vm.startPrank(USER);
 
         if (block.chainid == MUMBAI_CHAINID) {
-            ISLN(fromTokenAddress).approve(address(switchlane), INITIAL_DEPOSIT);
+            ISLN(fromTokenAddress).approve(address(switchlaneExposed), INITIAL_DEPOSIT);
         } else {
-            IWETH(payable(fromTokenAddress)).approve(address(switchlane), INITIAL_DEPOSIT);
+            IWETH(payable(fromTokenAddress)).approve(address(switchlaneExposed), INITIAL_DEPOSIT);
         }
 
-        switchlane.switchlaneExactOutput(
+        switchlaneExposed.switchlaneExactOutput(
             USER,
             USER,
             fromTokenAddress,
@@ -248,5 +248,41 @@ contract SwitchlaneForkTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    function testSwapExactInputSingle()
+        public
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
+        whitelistReceiveToken(fromTokenAddress)
+    {
+        uint256 minimumOutAmount = 10e18; // This number must be calculated with a still not developed function
+
+        vm.startPrank(USER);
+
+        IERC20(fromTokenAddress).approve(address(switchlaneExposed), INITIAL_DEPOSIT);
+
+        switchlaneExposed.receiveTokens(USER, fromTokenAddress, INITIAL_DEPOSIT);
+
+        uint256 actualAmountOut =
+            switchlaneExposed.swapExactInputSingle(fromTokenAddress, toTokenAddress, INITIAL_DEPOSIT, minimumOutAmount);
+
+        vm.stopPrank();
+
+        uint256 expectedBalanceAfterSwap = 0;
+        uint256 actualBalanceAfterSwap = IERC20(fromTokenAddress).balanceOf(USER);
+
+        assertEq(expectedBalanceAfterSwap, actualBalanceAfterSwap);
+
+        uint256 expectedMinimumBalanceToTokenAfterSwap = minimumOutAmount;
+
+        assert(actualAmountOut >= expectedMinimumBalanceToTokenAfterSwap);
+    }
+
+    function testSwapExactOutputSingle()
+        public
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
+        whitelistReceiveToken(fromTokenAddress)
+    {
+        // This function can only be tested with a calculateMaximumInAmount function
     }
 }
