@@ -340,21 +340,39 @@ contract SwitchlaneTest is Test {
         public
         mintToken(fromTokenAddress, USER, amount)
         whitelistReceiveToken(fromTokenAddress)
-    {   
-        if(amount > 0){
-        vm.prank(USER);
-        IERC20(fromTokenAddress).approve(address(switchlaneExposed), amount);
+    {
+        if (amount > 0) {
+            vm.prank(USER);
+            IERC20(fromTokenAddress).approve(address(switchlaneExposed), amount);
 
-        switchlaneExposed.receiveTokens(USER, fromTokenAddress, amount);
+            switchlaneExposed.receiveTokens(USER, fromTokenAddress, amount);
 
-        uint256 expectedBalanceOfUser = 0;
-        uint256 actualBalanceOfUser = IERC20(fromTokenAddress).balanceOf(USER);
+            uint256 expectedBalanceOfUser = 0;
+            uint256 actualBalanceOfUser = IERC20(fromTokenAddress).balanceOf(USER);
 
-        uint256 expectedBalanceOfSwitchlane = amount;
-        uint256 actualBalanceOfSwitchlane = IERC20(fromTokenAddress).balanceOf(address(switchlaneExposed));
+            uint256 expectedBalanceOfSwitchlane = amount;
+            uint256 actualBalanceOfSwitchlane = IERC20(fromTokenAddress).balanceOf(address(switchlaneExposed));
 
-        assertEq(expectedBalanceOfUser, actualBalanceOfUser);
-        assertEq(expectedBalanceOfSwitchlane, actualBalanceOfSwitchlane);
+            assertEq(expectedBalanceOfUser, actualBalanceOfUser);
+            assertEq(expectedBalanceOfSwitchlane, actualBalanceOfSwitchlane);
         }
+    }
+
+    function testCalculateMinimumOutAmount()
+        public
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
+        addPriceFeedToToken(fromTokenAddress, address(wethPriceFeed))
+        addPriceFeedToToken(toTokenAddress, address(fees.linkPriceFeedAddress))
+        whitelistChain(POLYGON_DESTINATION_CHAIN)
+    {
+        uint24 maxTolerance = 5000;
+        uint256 fromAmount = 1e18;
+        uint256 expectedMinimumOutAmount = 1981036045e11;
+
+        uint256 actualMinimumOutAmount = switchlane.calculateMinimumOutAmount(
+            fromTokenAddress, toTokenAddress, maxTolerance, fromAmount, POLYGON_DESTINATION_CHAIN
+        );
+
+        assertEq(expectedMinimumOutAmount, actualMinimumOutAmount);
     }
 }

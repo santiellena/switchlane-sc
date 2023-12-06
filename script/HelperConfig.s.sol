@@ -3,6 +3,8 @@ pragma solidity 0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ERC20Mock} from "../test/mock/ERC20Mock.sol";
+import {MockV3Aggregator} from "../test/mock/MockV3Aggregator.sol";
+import {MockRouter} from "../test/mock/MockRouter.sol";
 
 contract HelperConfig is Script {
     struct Fees {
@@ -29,6 +31,10 @@ contract HelperConfig is Script {
 
     uint24 public constant DEFAULT_POOL_FEE = 3000;
     uint256 public constant DEFAULT_LINK_FEE = 1e17;
+    uint256 public constant FIXED_TEST_CCIP_FEE = 2e17;
+
+    uint8 public constant PRICEFEED_DECIMALS = 8;
+    int256 public constant LINK_USD_PRICE = 10e8;
 
     NetworkConfig public activeNetworkConfig;
 
@@ -129,14 +135,20 @@ contract HelperConfig is Script {
 
         ERC20Mock weth = new ERC20Mock("Wrapped ETH", "WETH");
         ERC20Mock usdc = new ERC20Mock("Circle USD", "USDC");
+        MockV3Aggregator linkPriceFeed = new MockV3Aggregator(PRICEFEED_DECIMALS, LINK_USD_PRICE);
+
+        MockRouter mockRouter = new MockRouter(FIXED_TEST_CCIP_FEE);
 
         vm.stopBroadcast();
 
-        Fees memory fees =
-            Fees({poolFee: DEFAULT_POOL_FEE, linkMarginFee: DEFAULT_LINK_FEE, linkPriceFeedAddress: address(1)});
+        Fees memory fees = Fees({
+            poolFee: DEFAULT_POOL_FEE,
+            linkMarginFee: DEFAULT_LINK_FEE,
+            linkPriceFeedAddress: address(linkPriceFeed)
+        });
 
         return NetworkConfig({
-            routerAddress: address(2),
+            routerAddress: address(mockRouter),
             linkAddress: address(3),
             swapRouterAddress: address(4),
             fees: fees,
