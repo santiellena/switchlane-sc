@@ -193,7 +193,7 @@ contract SwitchlaneForkTest is Test {
         addPriceFeedToToken(fromTokenAddress, slnPriceFeedMumbai)
         whitelistReceiveToken(fromTokenAddress)
     {
-        uint256 expectedReceiveAmount = 3e17; // Adjust this to actual price data
+        uint256 expectedReceiveAmount = 7e17; // Adjust this to actual price data
         vm.startPrank(USER);
 
         if (block.chainid == MUMBAI_CHAINID) {
