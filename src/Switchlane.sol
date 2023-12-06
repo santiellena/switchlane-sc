@@ -583,25 +583,69 @@ contract Switchlane is OwnerIsCreator {
      *
      * @notice The idea of this function is to give the frontend a value in 'toToken' to show the user the expected result of the tx
      */
-    function calculateMinimumOutAmount(address fromToken, address toToken, uint24 maxTolerance, uint256 fromAmount, uint64 destinationChain)
+    function calculateMinimumOutAmount(
+        address fromToken,
+        address toToken,
+        uint24 maxTolerance,
+        uint256 fromAmount,
+        uint64 destinationChain
+    )
         external
         view
         moreThanZero(fromAmount)
         onlyWhiteListedSwapPair(fromToken, toToken)
-        returns(uint256 minimumOutAmount)
-    {   
+        returns (uint256 minimumOutAmount)
+    {
         uint256 fromAmountInUsd = getTokenUsdValue(fromToken, fromAmount);
 
         uint256 expectedAmountToToken = getTokenAmountFromUsd(toToken, fromAmountInUsd);
 
-        uint256 feesInUsd = calculateProtocolFees(fromToken, toToken, fromAmount, expectedAmountToToken, destinationChain);
+        uint256 feesInUsd =
+            calculateProtocolFees(fromToken, toToken, fromAmount, expectedAmountToToken, destinationChain);
 
         uint256 toAmountInUsd = fromAmountInUsd - feesInUsd;
 
         uint256 usdTolerance = (toAmountInUsd * uint256(maxTolerance) * PRECISION) / PERCENTAGE_PRECISION;
 
-
         minimumOutAmount = getTokenAmountFromUsd(toToken, toAmountInUsd - usdTolerance);
+    }
+
+    /**
+     * @notice calculates the maximum amount the protocol will spend given a expected output amount
+     * @dev this function was built to calculate the "amount" parameter on "switchlaneExactOutput"
+     *
+     * @param fromToken The token being sent
+     * @param toToken The token being received
+     * @param maxTolerance The percentual tolerance of the difference in USD after fees deduction
+     * @param toAmount the expected amount to be received
+     * @param destinationChain The chain where tokens will arrive
+     */
+    function calculateMaximumInAmount(
+        address fromToken,
+        address toToken,
+        uint24 maxTolerance,
+        uint256 toAmount,
+        uint64 destinationChain
+    )
+        external
+        view
+        moreThanZero(toAmount)
+        onlyWhiteListedSwapPair(fromToken, toToken)
+        returns (uint256 maximumInAmount)
+    {
+        uint256 toAmountInUsd = getTokenUsdValue(toToken, toAmount);
+
+        uint256 expectedAmountFromToken = getTokenAmountFromUsd(fromToken, toAmountInUsd);
+
+        uint256 feesInUsd =
+            calculateProtocolFees(fromToken, toToken, expectedAmountFromToken, toAmount, destinationChain);
+
+        uint256 fromAmountInUsdWithoutTolerance = toAmountInUsd + feesInUsd;
+
+        uint256 fromAmountTolerance =
+            (fromAmountInUsdWithoutTolerance * uint256(maxTolerance) * PRECISION) / PERCENTAGE_PRECISION;
+
+        maximumInAmount = getTokenAmountFromUsd(fromToken, fromAmountInUsdWithoutTolerance + fromAmountTolerance);
     }
 
     /**

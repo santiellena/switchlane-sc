@@ -375,4 +375,22 @@ contract SwitchlaneTest is Test {
 
         assertEq(expectedMinimumOutAmount, actualMinimumOutAmount);
     }
+
+    function testCalculateMaximumInAmount()
+        public
+        whitelistSwapPair(fromTokenAddress, toTokenAddress)
+        addPriceFeedToToken(fromTokenAddress, address(wethPriceFeed))
+        addPriceFeedToToken(toTokenAddress, address(fees.linkPriceFeedAddress))
+        whitelistChain(POLYGON_DESTINATION_CHAIN)
+    {
+        uint24 maxTolerance = 5000;
+        uint256 expectedMaximumInAmount = 771131475e8; // Calculation made with own calculator following the logic
+        uint256 toAmount = 15e18;
+
+        uint256 actualMaximumInAmount = switchlane.calculateMaximumInAmount(
+            fromTokenAddress, toTokenAddress, maxTolerance, toAmount, POLYGON_DESTINATION_CHAIN
+        );
+
+        assertEq(expectedMaximumInAmount, actualMaximumInAmount);
+    }
 }
