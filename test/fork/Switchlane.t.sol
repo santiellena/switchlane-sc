@@ -254,8 +254,14 @@ contract SwitchlaneForkTest is Test {
         public
         whitelistSwapPair(fromTokenAddress, toTokenAddress)
         whitelistReceiveToken(fromTokenAddress)
+        addPriceFeedToToken(fromTokenAddress, wethPriceFeedMainnet)
+        addPriceFeedToToken(toTokenAddress, fees.linkPriceFeedAddress)
+        whitelistChain(ARBITRUM_DESTINATION_CHAIN)
     {
-        uint256 minimumOutAmount = 10e18; // This number must be calculated with a still not developed function
+        uint24 maxTolerance = 5000;
+        uint256 minimumOutAmount = switchlaneExposed.calculateMinimumOutAmount(
+            fromTokenAddress, toTokenAddress, maxTolerance, INITIAL_DEPOSIT, ARBITRUM_DESTINATION_CHAIN
+        );
 
         vm.startPrank(USER);
 
@@ -276,13 +282,50 @@ contract SwitchlaneForkTest is Test {
         uint256 expectedMinimumBalanceToTokenAfterSwap = minimumOutAmount;
 
         assert(actualAmountOut >= expectedMinimumBalanceToTokenAfterSwap);
+
+        uint256 actualBalanceSwitchlaneAfterSwap = IERC20(toTokenAddress).balanceOf(address(switchlaneExposed));
+
+        assert(actualBalanceSwitchlaneAfterSwap == actualAmountOut);
     }
 
     function testSwapExactOutputSingle()
         public
         whitelistSwapPair(fromTokenAddress, toTokenAddress)
         whitelistReceiveToken(fromTokenAddress)
+        addPriceFeedToToken(fromTokenAddress, wethPriceFeedMainnet)
+        addPriceFeedToToken(toTokenAddress, fees.linkPriceFeedAddress)
+        whitelistChain(ARBITRUM_DESTINATION_CHAIN)
     {
-        // This function can only be tested with a calculateMaximumInAmount function
+        uint256 exactOutput = 100e18;
+        uint24 maxTolerance = 5000;
+        uint256 maximumInAmount = switchlaneExposed.calculateMaximumInAmount(
+            fromTokenAddress, toTokenAddress, maxTolerance, exactOutput, ARBITRUM_DESTINATION_CHAIN
+        );
+
+        console.log(maximumInAmount);
+
+        vm.startPrank(USER);
+
+        IERC20(fromTokenAddress).balanceOf(USER);
+
+        IERC20(fromTokenAddress).approve(address(switchlaneExposed), maximumInAmount);
+
+        switchlaneExposed.receiveTokens(USER, fromTokenAddress, maximumInAmount);
+
+        uint256 actualAmountIn =
+            switchlaneExposed.swapExactOutputSingle(fromTokenAddress, toTokenAddress, exactOutput, maximumInAmount);
+
+        vm.stopPrank();
+
+        assert(actualAmountIn <= maximumInAmount);
+
+        uint256 expectedBalanceAfterSwap = INITIAL_DEPOSIT - maximumInAmount; // This need to change not used tokens must be refunded
+        uint256 actualBalanceAfterSwap = IERC20(fromTokenAddress).balanceOf(USER);
+
+        assertEq(expectedBalanceAfterSwap, actualBalanceAfterSwap);
+
+        uint256 balanceOfSwitchlane = IERC20(toTokenAddress).balanceOf(address(switchlaneExposed));
+
+        assertEq(balanceOfSwitchlane, exactOutput);
     }
 }

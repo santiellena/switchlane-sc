@@ -34,7 +34,7 @@ contract SwitchlaneExposed is Switchlane {
         external
         returns (uint256)
     {
-        return _swapExactInputSingle(fromToken, toToken, amountOut, amountInMaximum);
+        return _swapExactOutputSingle(fromToken, toToken, amountOut, amountInMaximum);
     }
 
     function transferTokens(uint64 _destinationChainSelector, address _receiver, address _token, uint256 _amount)
