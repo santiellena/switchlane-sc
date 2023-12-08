@@ -15,7 +15,7 @@ anvil:; anvil
 
 NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(ANVIL_KEY) --broadcast
 
-NETWORK_FORK_ARGS := --fork-url $(MAINNET_FORK_URL)
+NETWORK_FORK_ARGS := --fork-url $(MUMBAI_FORK_URL)
 
 ifeq ($(findstring --fork polygon,$(ARGS)), --fork polygon)
 	NETWORK_FORK_ARGS := --fork-url $(POLYGON_FORK_URL)  

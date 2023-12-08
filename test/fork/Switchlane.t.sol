@@ -162,7 +162,7 @@ contract SwitchlaneForkTest is Test {
     }
 
     // Test it on mainnet
-    function testCalculateProtocolFees()
+    function testCalculateProtocolFeesOnMainnet()
         public
         whitelistSwapPair(fromTokenAddress, toTokenAddress)
         whitelistChain(ARBITRUM_DESTINATION_CHAIN)
@@ -193,7 +193,10 @@ contract SwitchlaneForkTest is Test {
         addPriceFeedToToken(fromTokenAddress, slnPriceFeedMumbai)
         whitelistReceiveToken(fromTokenAddress)
     {
-        uint256 expectedReceiveAmount = 7e17; // Adjust this to actual price data
+        uint24 maxTolerance = 5000;
+        uint256 minimumReceiveAmount = switchlaneExposed.calculateMinimumOutAmount(
+            fromTokenAddress, toTokenAddress, maxTolerance, INITIAL_DEPOSIT, SEPOLIA_DESTINATION_CHAIN
+        );
         vm.startPrank(USER);
 
         if (block.chainid == MUMBAI_CHAINID) {
@@ -209,7 +212,7 @@ contract SwitchlaneForkTest is Test {
             toTokenAddress,
             SEPOLIA_DESTINATION_CHAIN,
             INITIAL_DEPOSIT,
-            expectedReceiveAmount
+            minimumReceiveAmount
         );
 
         vm.stopPrank();

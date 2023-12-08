@@ -603,6 +603,10 @@ contract Switchlane is OwnerIsCreator {
         uint256 feesInUsd =
             calculateProtocolFees(fromToken, toToken, fromAmount, expectedAmountToToken, destinationChain);
 
+        if (fromAmountInUsd <= feesInUsd) {
+            revert NotEnoughTokensToPayFees();
+        }
+
         uint256 toAmountInUsd = fromAmountInUsd - feesInUsd;
 
         uint256 usdTolerance = (toAmountInUsd * uint256(maxTolerance) * PRECISION) / PERCENTAGE_PRECISION;
